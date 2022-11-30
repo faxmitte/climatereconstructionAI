@@ -23,9 +23,9 @@ class CRAINet(nn.Module):
 
         # initialize channel inputs and outputs and image size for encoder and decoder
         if cfg.n_filters is None:
-            enc_conv_configs = init_enc_conv_configs(cfg.conv_factor, enc_dec_layers,
+            enc_conv_configs = init_enc_conv_configs(img_size, cfg.conv_factor, enc_dec_layers,
                                                      pool_layers, in_channels)
-            dec_conv_configs = init_dec_conv_configs(cfg.conv_factor, enc_dec_layers,
+            dec_conv_configs = init_dec_conv_configs(img_size, cfg.conv_factor, enc_dec_layers,
                                                      pool_layers, in_channels,
                                                      out_channels)
         else:
