@@ -36,7 +36,7 @@ class CRAINet(nn.Module):
 
         if cfg.attention:
             self.attention_depth = fusion_enc_layers + fusion_pool_layers
-            attention_enc_conv_configs = init_enc_conv_configs(fusion_img_size, fusion_enc_layers,
+            attention_enc_conv_configs = init_enc_conv_configs(fusion_img_size, cfg.conv_factor, fusion_enc_layers,
                                                                fusion_pool_layers, fusion_in_channels)
             attention_layers = []
             for i in range(self.attention_depth):
