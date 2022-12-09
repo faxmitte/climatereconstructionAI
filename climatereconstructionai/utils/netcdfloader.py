@@ -1,6 +1,7 @@
 import os
 import random
 
+import h5py
 import numpy as np
 import torch
 import xarray as xr
@@ -32,13 +33,11 @@ class InfiniteSampler(Sampler):
 
     def loop(self):
         i = 0
-        np.random.seed(cfg.random_seed)
         order = np.random.permutation(self.num_samples)
         while True:
             yield order[i]
             i += 1
             if i >= self.num_samples:
-                np.random.seed(cfg.random_seed)
                 order = np.random.permutation(self.num_samples)
                 i = 0
 
@@ -93,97 +92,113 @@ def load_netcdf(path, data_names, data_types, keep_dss=False):
 class NetCDFLoader(Dataset):
     def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps):
         super(NetCDFLoader, self).__init__()
-
+        self.split = split
         self.data_types = data_types
-        self.time_steps = time_steps
+        self.img_names = img_names
+        self.mask_names = mask_names
+        self.lstm_steps = time_steps
+        self.prev_next_steps = 0
 
-        if split == 'infill':
-            data_path = '{:s}/test_large/'.format(data_root)
-            self.xr_dss, self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types, keep_dss=True)
-        else:
-            if split == 'train':
-                data_path = '{:s}/data_large/'.format(data_root)
+        if split == 'train':
+            self.data_path = '{:s}/train/'.format(data_root)
+        elif split == 'test' or split == 'infill':
+            self.data_path = '{:s}/test/'.format(data_root)
+        elif split == 'val':
+            self.data_path = '{:s}/val/'.format(data_root)
+        self.mask_path = mask_root
+
+        print("HEY")
+
+        # define image and mask lenghts
+        self.img_lengths = {}
+        self.mask_lengths = {}
+        self.bounds = None
+        assert len(img_names) == len(mask_names) == len(data_types)
+        for i in range(len(img_names)):
+            self.init_dataset(img_names[i], mask_names[i], data_types[i])
+
+    def init_dataset(self, img_name, mask_name, data_type):
+        # set img and mask length
+        img_file = h5py.File('{}{}'.format(self.data_path, img_name), 'r')
+        img_data = img_file.get(data_type)
+        mask_file = h5py.File('{}{}'.format(self.mask_path, mask_name), 'r')
+        mask_data = mask_file.get(data_type)
+        self.img_lengths[img_name] = img_data.shape[0]
+        self.mask_lengths[mask_name] = mask_data.shape[0]
+
+        # if infill, check if img length matches mask length
+        if self.split == 'infill':
+            assert img_data.shape[0] == mask_data.shape[0]
+
+    def load_data(self, file, data_type, indices):
+        # open netcdf file
+        h5_data = file.get(data_type)
+        try:
+            if h5_data.ndim == 4:
+                total_data = torch.from_numpy(h5_data[indices, 0, :, :])
             else:
-                data_path = '{:s}/val_large/'.format(data_root)
-            self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types)
+                total_data = torch.from_numpy(h5_data[indices, :, :])
+        except TypeError:
+            # get indices that occur more than once
+            unique, counts = np.unique(indices, return_counts=True)
+            copy_indices = [(index, counts[index] - 1) for index in range(len(counts)) if counts[index] > 1]
+            if h5_data.ndim == 4:
+                total_data = torch.from_numpy(h5_data[unique, 0, :, :])
+            else:
+                total_data = torch.from_numpy(h5_data[unique, :, :])
+            if unique[copy_indices[0][0]] == 0:
+                total_data = torch.cat([torch.stack(copy_indices[0][1] * [total_data[copy_indices[0][0]]]), total_data])
+            else:
+                total_data = torch.cat([total_data, torch.stack(copy_indices[0][1] * [total_data[copy_indices[0][0]]])])
+        return total_data
 
-        self.mask_data, self.mask_length = load_netcdf(mask_root, mask_names, data_types)
-
-        if self.mask_data is None:
-            self.mask_length = self.img_length
+    def get_single_item(self, index, img_name, mask_name, data_type):
+        if self.lstm_steps == 0:
+            prev_steps = next_steps = self.prev_next_steps
         else:
-            if not cfg.shuffle_masks:
-                assert self.img_length == self.mask_length
+            prev_steps = next_steps = self.lstm_steps
 
-        self.img_mean, self.img_std, self.img_tf = img_normalization(self.img_data)
-
-    def load_data(self, ind_data, img_indices, mask_indices):
-
-        if self.mask_data is None:
-            # Get masks from images
-            image = self.img_data[ind_data][mask_indices]
-            mask = torch.from_numpy((1 - (np.isnan(image))).astype(image.dtype))
-        else:
-            mask = torch.from_numpy(self.mask_data[ind_data][mask_indices])
-        image = self.img_data[ind_data][img_indices]
-        image = torch.from_numpy(np.nan_to_num(image))
-
-        if cfg.normalize_images:
-            image = self.img_tf[ind_data](image)
-
-        return image, mask
-
-    def get_single_item(self, ind_data, index, shuffle_masks):
         # define range of lstm or prev-next steps -> adjust, if out of boundaries
-        img_indices = np.array(list(range(index - self.time_steps, index + self.time_steps + 1)))
+        img_indices = np.array(list(range(index - prev_steps, index + next_steps + 1)))
         img_indices[img_indices < 0] = 0
-        img_indices[img_indices > self.img_length - 1] = self.img_length - 1
-        if shuffle_masks:
-            mask_indices = []
-            for j in range(2 * self.time_steps + 1):
-                mask_indices.append(random.randint(0, self.mask_length - 1))
-            mask_indices = sorted(mask_indices)
-        else:
+        img_indices[img_indices > self.img_lengths[img_name] - 1] = self.img_lengths[img_name] - 1
+        if self.split == 'infill':
             mask_indices = img_indices
+        else:
+            mask_indices = []
+            for j in range(prev_steps + next_steps + 1):
+                mask_indices.append(random.randint(0, self.mask_lengths[mask_name] - 1))
+            mask_indices = sorted(mask_indices)
+
         # load data from ranges
-        images, masks = self.load_data(ind_data, img_indices, mask_indices)
+        img_file = h5py.File('{}{}'.format(self.data_path, img_name), 'r')
+        mask_file = h5py.File('{}{}'.format(self.mask_path, mask_name), 'r')
+        images = self.load_data(img_file, data_type, img_indices)
+        masks = self.load_data(mask_file, data_type, mask_indices)
 
         # stack to correct dimensions
-        images = torch.stack([images], dim=1)
-        masks = torch.stack([masks], dim=1)
-
+        if self.lstm_steps == 0:
+            images = torch.cat([images], dim=0).unsqueeze(0)
+            masks = torch.cat([masks], dim=0).unsqueeze(0)
+        else:
+            images = torch.stack([images], dim=1)
+            masks = torch.stack([masks], dim=1)
         return images, masks
 
     def __getitem__(self, index):
-
+        image, mask = self.get_single_item(index, self.img_names[0], self.mask_names[0], self.data_types[0])
         images = []
         masks = []
-        masked = []
-        for i in range(len(self.data_types)):
-
-            image, mask = self.get_single_item(i, index, cfg.shuffle_masks)
-            if i == cfg.img_index:
-                masks[0] = masks[0] * mask
-                masked[0] = image * masks[0]
-            else:
-                images.append(image)
-                masks.append(mask)
-                masked.append(image * mask)
-
-        if len(images) == 1:
-            if cfg.channel_steps:
-                return masked[0].transpose(0, 1), masks[0].transpose(0, 1), images[0].transpose(0, 1), torch.tensor(
-                    []), torch.tensor([]), torch.tensor([])
-            else:
-                return masked[0], masks[0], images[0], torch.tensor([]), torch.tensor([]), torch.tensor([])
+        for i in range(1, len(self.data_types)):
+            img, m = self.get_single_item(index, self.img_names[i], self.mask_names[i], self.data_types[i])
+            images.append(img)
+            masks.append(m)
+        if images and masks:
+            images = torch.cat(images, dim=1)
+            masks = torch.cat(masks, dim=1)
+            return mask * image, mask, image, masks * images, masks, images
         else:
-            if cfg.channel_steps:
-                return masked[0].transpose(0, 1), masks[0].transpose(0, 1), images[0].transpose(0, 1), torch.cat(
-                    masked[1:], dim=0).transpose(0, 1), torch.cat(masks[1:], dim=0).transpose(0, 1), torch.cat(
-                    images[1:], dim=0).transpose(0, 1)
-            else:
-                return masked[0], masks[0], images[0], torch.cat(masked[1:], dim=1), torch.cat(
-                    masks[1:], dim=1), torch.cat(images[1:], dim=1)
+            return mask * image, mask, image, torch.tensor([]), torch.tensor([]), torch.tensor([])
 
     def __len__(self):
-        return self.img_length
+        return self.img_lengths[self.img_names[0]]
