@@ -107,8 +107,6 @@ class NetCDFLoader(Dataset):
             self.data_path = '{:s}/val/'.format(data_root)
         self.mask_path = mask_root
 
-        print("HEY")
-
         # define image and mask lenghts
         self.img_lengths = {}
         self.mask_lengths = {}

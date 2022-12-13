@@ -97,7 +97,6 @@ def train(arg_file=None):
 
     if cfg.lr_scheduler_patience is not None:
         lr_scheduler = ReduceLROnPlateau(optimizer, 'min', patience=cfg.lr_scheduler_patience)
-
     # define start point
     start_iter = 0
     if cfg.resume_iter:
