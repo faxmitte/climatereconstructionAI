@@ -166,8 +166,11 @@ class NetCDFLoader(Dataset):
             mask_indices = img_indices
         else:
             mask_indices = []
+            mask_index = random.randint(0, self.mask_lengths[mask_name] - 1)
             for j in range(prev_steps + next_steps + 1):
-                mask_indices.append(random.randint(0, self.mask_lengths[mask_name] - 1))
+                if not cfg.select_continuous_masks:
+                    mask_index = random.randint(0, self.mask_lengths[mask_name] - 1)
+                mask_indices.append(mask_index)
             mask_indices = sorted(mask_indices)
 
         # load data from ranges

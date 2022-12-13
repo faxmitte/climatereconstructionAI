@@ -170,6 +170,7 @@ def set_train_args(arg_file=None):
                             help="Load all the arguments from a text file")
     arg_parser.add_argument('--vlim', type=lim_list, default=None,
                             help="Comma separated list of vmin,vmax values for the color scale of the snapshot images")
+    arg_parser.add_argument('--select-continuous-masks', action='store_true', help="Disable the skip layers")
     global_args(arg_parser, arg_file)
 
 
