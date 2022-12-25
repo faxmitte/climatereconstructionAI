@@ -182,8 +182,8 @@ class NetCDFLoader(Dataset):
             images = torch.cat([images], dim=0).unsqueeze(0)
             masks = torch.cat([masks], dim=0).unsqueeze(0)
         else:
-            images = images.unsqueeze(0)
-            masks = masks.unsqueeze(0)
+            images = images.unsqueeze(1)
+            masks = masks.unsqueeze(1)
         return images, masks
 
     def __getitem__(self, index):
