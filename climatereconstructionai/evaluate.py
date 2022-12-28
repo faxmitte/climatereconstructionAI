@@ -3,7 +3,6 @@ import os
 from .model.net import CRAINet
 from .utils.evaluation import infill
 from .utils.io import load_ckpt
-from .utils.netcdfloader import NetCDFLoader
 from . import config as cfg
 
 
@@ -15,6 +14,11 @@ def evaluate(arg_file=None, prog_func=None):
 
     n_models = len(cfg.model_names)
     assert n_models == len(cfg.eval_names)
+
+    if cfg.use_etienne_ncloader:
+        from .utils.netcdfloader import EtienneNetCDFLoader as NetCDFLoader
+    else:
+        from .utils.netcdfloader import JohannesNetCDFLoader as NetCDFLoader
 
     for i_model in range(n_models):
 

@@ -34,6 +34,9 @@ def str_list(arg):
 def int_list(arg):
     return list(map(int, arg.split(',')))
 
+def float_list(arg):
+    return list(map(float, arg.split(',')))
+
 
 def lim_list(arg):
     lim = list(map(float, arg.split(',')))
@@ -121,8 +124,12 @@ def set_common_args():
     arg_parser.add_argument('--weights', type=str, default=None, help="Initialization weight")
     arg_parser.add_argument('--steady-mask', type=str, default=None,
                             help="Filename of a netCDF file containing a single mask to be applied to all timesteps")
-    arg_parser.add_argument('--random-seed', type=int, default=None,
-                            help="Random seed for iteration loop and initialization weights")
+    arg_parser.add_argument('--target-data-indices', type=int_list, default=[],
+                            help="Indices of the data-names (from 0) to be used as target data")
+    arg_parser.add_argument('--loop-random-seed', type=int, default=None,
+                            help="Random seed for iteration loop")
+    arg_parser.add_argument('--cuda-random-seed', type=int, default=None,
+                            help="Random seed for CUDA")
     arg_parser.add_argument('--attention', action='store_true', help="Enable the attention module")
     arg_parser.add_argument('--channel-reduction-rate', type=int, default=1,
                             help="Channel reduction rate for the attention module")
@@ -131,12 +138,19 @@ def set_common_args():
                             help="Disable the batch normalization on the first layer")
     arg_parser.add_argument('--masked-bn', action='store_true',
                             help="Use masked batch normalization instead of standard BN")
+    arg_parser.add_argument('--use-etienne-ncloader', action='store_true',
+                            help="Use Etienne ncloader, else use johannes ncloader")
     arg_parser.add_argument('--global-padding', action='store_true', help="Use a custom padding for global dataset")
-    arg_parser.add_argument('--normalize-images', action='store_true',
+    arg_parser.add_argument('--normalize-data', action='store_true',
                             help="Normalize the input images to 0 mean and 1 std")
     arg_parser.add_argument('--n-filters', type=int, default=None, help="Number of filters for the first/last layer")
     arg_parser.add_argument('--out-channels', type=int, default=1, help="Number of channels for the output image")
     arg_parser.add_argument('--dataset-name', type=str, default=None, help="Name of the dataset for format checking")
+    arg_parser.add_argument('--min-bounds', type=float_list, default="inf",
+                            help="Comma separated list of values defining the permitted lower-bound of output values")
+    arg_parser.add_argument('--max-bounds', type=float_list, default="inf",
+                            help="Comma separated list of values defining the permitted upper-bound of output values")
+    arg_parser.add_argument('--profile', action='store_true', help="Profile code using tensorboard profiler")
     return arg_parser
 
 

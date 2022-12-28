@@ -15,7 +15,7 @@ from .model.net import CRAINet
 from .utils.evaluation import create_snapshot_image
 from .utils.featurizer import VGG16FeatureExtractor
 from .utils.io import load_ckpt, save_ckpt
-from .utils.netcdfloader import NetCDFLoader, InfiniteSampler, load_steadymask
+from .utils.netcdfloader import InfiniteSampler, load_steadymask
 
 
 def train(arg_file=None):
@@ -41,6 +41,11 @@ def train(arg_file=None):
         time_steps = cfg.channel_steps
     else:
         time_steps = 0
+
+    if cfg.use_etienne_ncloader:
+        from .utils.netcdfloader import EtienneNetCDFLoader as NetCDFLoader
+    else:
+        from .utils.netcdfloader import JohannesNetCDFLoader as NetCDFLoader
 
     # create data sets
     dataset_train = NetCDFLoader(cfg.data_root_dir, cfg.img_names, cfg.mask_dir, cfg.mask_names, 'train',
