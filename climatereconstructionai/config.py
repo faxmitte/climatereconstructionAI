@@ -126,7 +126,7 @@ def set_common_args():
                             help="Filename of a netCDF file containing a single mask to be applied to all timesteps")
     arg_parser.add_argument('--target-data-indices', type=int_list, default=[],
                             help="Indices of the data-names (from 0) to be used as target data")
-    arg_parser.add_argument('--loop-random-seed', type=int, default=None,
+    arg_parser.add_argument('--random-seed', type=int, default=None,
                             help="Random seed for iteration loop")
     arg_parser.add_argument('--cuda-random-seed', type=int, default=None,
                             help="Random seed for CUDA")

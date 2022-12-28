@@ -12,17 +12,12 @@ from .normalizer import img_normalization, bnd_normalization
 from .. import config as cfg
 
 
-def load_steadymask(path, mask_names, data_types, device):
-    if mask_names is None:
+def load_steadymask(path, mask_name, data_type, device):
+    if mask_name is None:
         return None
     else:
-        assert len(mask_names) == cfg.out_channels
-        if cfg.target_data_indices == []:
-            steady_mask, _ = load_netcdf(path, mask_names, data_types[:cfg.out_channels])
-        else:
-            steady_mask, _ = load_netcdf(path, mask_names, [data_types[i] for i in cfg.target_data_indices])
-        # stack + squeeze ensures that it works with steady masks with one timestep or no timestep
-        return torch.stack([torch.from_numpy(mask).to(device) for mask in steady_mask]).squeeze()
+        steady_mask, _ = load_netcdf(path, [mask_name], [data_type])
+        return torch.from_numpy(steady_mask[0]).to(device)
 
 
 class InfiniteSampler(Sampler):
@@ -38,11 +33,13 @@ class InfiniteSampler(Sampler):
 
     def loop(self):
         i = 0
+        np.random.seed(cfg.random_seed)
         order = np.random.permutation(self.num_samples)
         while True:
             yield order[i]
             i += 1
             if i >= self.num_samples:
+                np.random.seed(cfg.random_seed)
                 order = np.random.permutation(self.num_samples)
                 i = 0
 
@@ -66,11 +63,9 @@ def nc_loadchecker(filename, data_type, image_size, keep_dss=False):
         dtype = ds[data_type].dtype
         ds = ds.drop_vars(data_type)
         ds[data_type] = np.empty(0, dtype=dtype)
-        dss = [ds, ds1]
+        return [ds, ds1], [ds1[data_type].values]
     else:
-        dss = None
-
-    return dss, ds1[data_type].values, ds1[data_type].shape[0]
+        return None, [ds1[data_type].values]
 
 
 def load_netcdf(path, data_names, data_types, keep_dss=False):
@@ -80,11 +75,15 @@ def load_netcdf(path, data_names, data_types, keep_dss=False):
         ndata = len(data_names)
         assert ndata == len(data_types)
 
-        dss, data, lengths = zip(*[nc_loadchecker('{}{}'.format(path, data_names[i]), data_types[i], cfg.image_sizes[i],
-                                   keep_dss=keep_dss) for i in range(ndata)])
+        dss, data = nc_loadchecker('{}{}'.format(path, data_names[0]), data_types[0], cfg.image_sizes[0],
+                                   keep_dss=keep_dss)
+        lengths = [len(data[0])]
+        for i in range(1, ndata):
+            data += nc_loadchecker('{}{}'.format(path, data_names[i]), data_types[i], cfg.image_sizes[0])[1]
+            lengths.append(len(data[-1]))
 
-        # if cfg.input_data_index is None:
-        assert len(set(lengths)) == 1
+        if cfg.img_index is None:
+            assert len(set(lengths)) == 1
 
         if keep_dss:
             return dss, data, lengths[0]
@@ -99,8 +98,7 @@ class JohannesNetCDFLoader(Dataset):
         self.data_types = data_types
         self.img_names = img_names
         self.mask_names = mask_names
-        self.lstm_steps = time_steps
-        self.prev_next_steps = 0
+        self.time_steps = time_steps
 
         if split == 'train':
             self.data_path = '{:s}/train/'.format(data_root)
@@ -154,13 +152,8 @@ class JohannesNetCDFLoader(Dataset):
         return total_data
 
     def get_single_item(self, index, img_name, mask_name, data_type):
-        if self.lstm_steps == 0:
-            prev_steps = next_steps = self.prev_next_steps
-        else:
-            prev_steps = next_steps = self.lstm_steps
-
         # define range of lstm or prev-next steps -> adjust, if out of boundaries
-        img_indices = np.array(list(range(index - prev_steps, index + next_steps + 1)))
+        img_indices = np.array(list(range(index - self.time_steps, index + self.time_steps + 1)))
         img_indices[img_indices < 0] = 0
         img_indices[img_indices > self.img_lengths[img_name] - 1] = self.img_lengths[img_name] - 1
         if self.split == 'infill':
@@ -168,7 +161,7 @@ class JohannesNetCDFLoader(Dataset):
         else:
             mask_indices = []
             mask_index = random.randint(0, self.mask_lengths[mask_name] - 1)
-            for j in range(prev_steps + next_steps + 1):
+            for j in range(self.time_steps + self.time_steps + 1):
                 if not cfg.select_continuous_masks:
                     mask_index = random.randint(0, self.mask_lengths[mask_name] - 1)
                 mask_indices.append(mask_index)
@@ -181,7 +174,7 @@ class JohannesNetCDFLoader(Dataset):
         masks = self.load_data(mask_file, data_type, mask_indices)
 
         # stack to correct dimensions
-        if self.lstm_steps == 0:
+        if cfg.lstm_steps == 0:
             images = torch.cat([images], dim=0).unsqueeze(0)
             masks = torch.cat([masks], dim=0).unsqueeze(0)
         else:
@@ -209,15 +202,12 @@ class JohannesNetCDFLoader(Dataset):
 
 
 class EtienneNetCDFLoader(Dataset):
-    def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps, stat_target=None):
+    def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps):
         super(EtienneNetCDFLoader, self).__init__()
-
-        self.random = random.Random(cfg.loop_random_seed)
 
         self.data_types = data_types
         self.time_steps = time_steps
 
-        mask_path = mask_root
         if split == 'infill':
             data_path = '{:s}/test/'.format(data_root)
             self.xr_dss, self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types, keep_dss=True)
@@ -226,11 +216,9 @@ class EtienneNetCDFLoader(Dataset):
                 data_path = '{:s}/train/'.format(data_root)
             else:
                 data_path = '{:s}/val/'.format(data_root)
-                if not cfg.shuffle_masks:
-                    mask_path = '{:s}/val/'.format(mask_root)
             self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types)
 
-        self.mask_data, self.mask_length = load_netcdf(mask_path, mask_names, data_types)
+        self.mask_data, self.mask_length = load_netcdf(mask_root, mask_names, data_types)
 
         if self.mask_data is None:
             self.mask_length = self.img_length
@@ -239,8 +227,6 @@ class EtienneNetCDFLoader(Dataset):
                 assert self.img_length == self.mask_length
 
         self.img_mean, self.img_std, self.img_tf = img_normalization(self.img_data)
-
-        self.bounds = bnd_normalization(self.img_mean, self.img_std, stat_target)
 
     def load_data(self, ind_data, img_indices, mask_indices):
 
@@ -266,7 +252,7 @@ class EtienneNetCDFLoader(Dataset):
         if shuffle_masks:
             mask_indices = []
             for j in range(2 * self.time_steps + 1):
-                mask_indices.append(self.random.randint(0, self.mask_length - 1))
+                mask_indices.append(random.randint(0, self.mask_length - 1))
             mask_indices = sorted(mask_indices)
         else:
             mask_indices = img_indices
@@ -284,28 +270,31 @@ class EtienneNetCDFLoader(Dataset):
         images = []
         masks = []
         masked = []
-        ndata = len(self.data_types)
-        for i in range(ndata):
+        for i in range(len(self.data_types)):
 
             image, mask = self.get_single_item(i, index, cfg.shuffle_masks)
-
-            if i in cfg.target_data_indices:
-                images.append(image)
+            if i == cfg.img_index:
+                masks[0] = masks[0] * mask
+                masked[0] = image * masks[0]
             else:
-                if cfg.target_data_indices == []:
-                    images.append(image)
+                images.append(image)
                 masks.append(mask)
                 masked.append(image * mask)
 
-        if cfg.channel_steps:
-            return torch.cat(masked, dim=0).transpose(0, 1), torch.cat(masks, dim=0).transpose(0, 1), torch.cat(images, dim=0).transpose(0, 1), torch.tensor([]), torch.tensor([]), torch.tensor([])
-            #return masked[0].transpose(0, 1), masks[0].transpose(0, 1), images[0].transpose(0, 1), torch.cat(
-            #    masked[1:], dim=0).transpose(0, 1), torch.cat(masks[1:], dim=0).transpose(0, 1), torch.cat(
-            #    images[1:], dim=0).transpose(0, 1)
+        if len(images) == 1:
+            if cfg.channel_steps:
+                return masked[0].transpose(0, 1), masks[0].transpose(0, 1), images[0].transpose(0, 1), torch.tensor(
+                    []), torch.tensor([]), torch.tensor([])
+            else:
+                return masked[0], masks[0], images[0], torch.tensor([]), torch.tensor([]), torch.tensor([])
         else:
-            return torch.cat(masked, dim=1), torch.cat(masks, dim=1), torch.cat(images, dim=1), torch.tensor([]), torch.tensor([]), torch.tensor([])
-            #return masked[0], masks[0], images[0], torch.cat(masked[1:], dim=1), torch.cat(
-            #    masks[1:], dim=1), torch.cat(images[1:], dim=1)
+            if cfg.channel_steps:
+                return masked[0].transpose(0, 1), masks[0].transpose(0, 1), images[0].transpose(0, 1), torch.cat(
+                    masked[1:], dim=0).transpose(0, 1), torch.cat(masks[1:], dim=0).transpose(0, 1), torch.cat(
+                    images[1:], dim=0).transpose(0, 1)
+            else:
+                return masked[0], masks[0], images[0], torch.cat(masked[1:], dim=1), torch.cat(
+                    masks[1:], dim=1), torch.cat(images[1:], dim=1)
 
     def __len__(self):
         return self.img_length
