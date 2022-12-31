@@ -346,11 +346,11 @@ def create_evaluation_graphs(gt, outputs):
         rmse_over_mean_timeseries[output_name] = metrics.rmse_over_mean_timeseries(gt, output, time)
 
     # create time series plots
-    plot_ts('Maximum', 'MaxTS{}x{}'.format(cfg.image_sizes[0], cfg.image_sizes[0]), max_timeseries, time, 'mm/h')
-    plot_ts('Minimum', 'MinTS{}x{}'.format(cfg.image_sizes[0], cfg.image_sizes[0]), min_timeseries, time, 'mm/h')
-    plot_ts('Mean', 'MeanTS{}x{}'.format(cfg.image_sizes[0], cfg.image_sizes[0]), mean_timeseries, time, 'mm/h')
-    plot_ts('RMSE', 'RMSETS{}x{}'.format(cfg.image_sizes[0], cfg.image_sizes[0]), rmse_timeseries, time, 'mm/h')
-    plot_ts('AME', 'METS{}x{}'.format(cfg.image_sizes[0], cfg.image_sizes[0]), rmse_over_mean_timeseries, time, 'mm/h')
+    plot_ts('Maximum', '{}_MaxTS'.format(cfg.eval_names[0]), max_timeseries, time, 'mm/h')
+    plot_ts('Minimum', '{}_MinTS'.format(cfg.eval_names[0]), min_timeseries, time, 'mm/h')
+    plot_ts('Mean', '{}_MeanTS'.format(cfg.eval_names[0]), mean_timeseries, time, 'mm/h')
+    plot_ts('RMSE', '{}_RMSETS'.format(cfg.eval_names[0]), rmse_timeseries, time, 'mm/h')
+    plot_ts('AME', '{}_METS'.format(cfg.eval_names[0]), rmse_over_mean_timeseries, time, 'mm/h')
 
 
 def create_evaluation_maps(gt, outputs):
@@ -414,7 +414,6 @@ def create_evaluation_maps(gt, outputs):
             if 'TimCor' not in map_names[i][j]:
                 cax.set_xlabel('mm/h', labelpad=20)
                 cax.xaxis.set_label_position('bottom')
-            plt.savefig('{}/maps/{}{}x{}.pdf'.format(cfg.evaluation_dirs[0], map_names[i][j], cfg.image_sizes[0],
-                                                     cfg.image_sizes[0]), bbox_inches='tight')
+            plt.savefig('{}/maps/{}_{}.pdf'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], map_names[i][j]), bbox_inches='tight')
             plt.clf()
             plt.close('all')
