@@ -196,6 +196,8 @@ def set_evaluate_args(arg_file=None, prog_func=None):
                             help="Directory where the output files will be stored")
     arg_parser.add_argument('--eval-names', type=str_list, default='output',
                             help="Prefix used for the output filenames")
+    arg_parser.add_argument('--infilled-names', type=str_list, default='baseline',
+                            help="Prefix used for the output filenames")
     arg_parser.add_argument('--create-graph', action='store_true', help="Create a Tensorboard graph of the NN")
     arg_parser.add_argument('--plot-results', type=int_list, default=None,
                             help="Create plot images of the results for the comma separated list of time indices")
