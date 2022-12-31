@@ -14,6 +14,8 @@ LAMBDA_DICT_HOLE = {
     'hole': 1.0
 }
 
+PDF_BINS = [0,0.1,0.4,0.7,1]
+
 
 def get_format(dataset_name):
     json_data = pkgutil.get_data(__name__, "static/dataset_format.json")
@@ -199,7 +201,18 @@ def set_evaluate_args(arg_file=None, prog_func=None):
     arg_parser.add_argument('--infilled-names', type=str_list, default='baseline',
                             help="Prefix used for the output filenames")
     arg_parser.add_argument('--create-graph', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-graphs', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-rmse-maps', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-timcor-maps', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-sum-maps', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--infill', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-report', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-images', type=int_list, default=None,
+                            help="Create plot images of the results for the comma separated list of time indices")
+    arg_parser.add_argument('--create-video', action='store_true', help="Create a Tensorboard graph of the NN")
     arg_parser.add_argument('--plot-results', type=int_list, default=None,
+                            help="Create plot images of the results for the comma separated list of time indices")
+    arg_parser.add_argument('--eval-range', type=int_list, default=None,
                             help="Create plot images of the results for the comma separated list of time indices")
     arg_parser.add_argument('--partitions', type=int, default=1,
                             help="Split the climate dataset into several partitions along the time coordinate")
@@ -207,4 +220,11 @@ def set_evaluate_args(arg_file=None, prog_func=None):
                             help="Maximum available memory in MB (overwrite partitions parameter)")
     arg_parser.add_argument('-f', '--load-from-file', type=str, action=LoadFromFile,
                             help="Load all the arguments from a text file")
+    arg_parser.add_argument('--eval-threshold', type=float, default=None, help="Learning rate")
+    arg_parser.add_argument('--min-rmse', type=float, default=0.0, help="Learning rate")
+    arg_parser.add_argument('--max-rmse', type=float, default=1.0, help="Learning rate")
+    arg_parser.add_argument('--min-sum', type=float, default=0.0, help="Learning rate")
+    arg_parser.add_argument('--max-sum', type=float, default=100.0, help="Learning rate")
+    arg_parser.add_argument('--max-timcor', type=float, default=1.0, help="Learning rate")
+
     global_args(arg_parser, arg_file, prog_func)

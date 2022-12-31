@@ -20,7 +20,7 @@ from matplotlib import font_manager
 from netCDF4 import Dataset
 from fpdf import FPDF
 
-import utils.metrics as metrics
+from . import metrics
 
 def create_snapshot_image(model, dataset, filename):
     image, mask, gt, fusion_image, fusion_mask, fusion_gt = zip(*[dataset[int(i)] for i in cfg.eval_timesteps])
@@ -320,7 +320,7 @@ def plot_ts(title, file_name, time_series_dict, time, unit):
 
 
 def create_evaluation_graphs(gt, outputs):
-    data = Dataset('{}/{}'.format(cfg.evaluation_dirs[0], 'gt.nc'))
+    data = Dataset('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_gt.nc'))
     time = data.variables['time']
     time = netCDF4.num2date(time[:], time.units)
 
