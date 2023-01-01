@@ -310,7 +310,7 @@ def plot_ts(title, file_name, time_series_dict, time, unit):
         plt.xlabel("Year {}".format(time[0].year))
         plt.ylabel(title + " in " + unit)
     ax = plt.gca()
-    ax.set_xticks(range(12))
+    ax.set_xticks(range(len([i for i in range(len(time)) if time[i].month != time[i - 1].month or i == 0])))
     ax.set_xticklabels(
         [calendar.month_abbr[time[i].month] for i in range(len(time)) if time[i].month != time[i - 1].month or i == 0])
     plt.xticks(rotation=55)
