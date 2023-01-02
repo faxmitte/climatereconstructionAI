@@ -94,6 +94,7 @@ def infill(model, dataset, eval_path):
     mask = []
     gt = []
     output = []
+    output_comp = []
 
     partitions = get_partitions(model.parameters(), dataset.img_length)
 
@@ -131,28 +132,30 @@ def infill(model, dataset, eval_path):
 
         output_part = output_part[:, cfg.recurrent_steps, :, :, :].to(torch.device('cpu'))
 
-        image.append(data_part[0])
-        mask.append(data_part[1])
-        gt.append(data_part[2])
-        output.append(output_part)
+        #image.append(data_part[0])
+        #mask.append(data_part[1])
+        #gt.append(data_part[2])
+        #output.append(output_part)
+        output_comp.append(data_part[1] * data_part[0] + (1 - data_part[1]) * output_part)
 
-    image = torch.cat(image)
-    mask = torch.cat(mask)
-    gt = torch.cat(gt)
-    output = torch.cat(output)
+    #image = torch.cat(image)
+    #mask = torch.cat(mask)
+    #gt = torch.cat(gt)
+    #output = torch.cat(output)
+    output_comp = torch.cat(output_comp)
 
-    steady_mask = load_steadymask(cfg.mask_dir, cfg.steady_mask, cfg.data_types[0], cfg.device)
-    if steady_mask is not None:
-        steady_mask = 1 - steady_mask
-        image /= steady_mask
-        gt /= steady_mask
-        output /= steady_mask
+    #steady_mask = load_steadymask(cfg.mask_dir, cfg.steady_mask, cfg.data_types[0], cfg.device)
+    #if steady_mask is not None:
+    #    steady_mask = 1 - steady_mask
+    #    image /= steady_mask
+    #    gt /= steady_mask
+    #    output /= steady_mask
 
     # create output_comp
-    output_comp = mask * image + (1 - mask) * output
-    image[np.where(mask == 0)] = np.nan
+    #output_comp = mask * image + (1 - mask) * output
+    #image[np.where(mask == 0)] = np.nan
 
-    cvar = {'gt': gt, 'mask': mask, 'image': image, 'output': output, 'infilled': output_comp}
+    cvar = {'infilled': output_comp} #, 'output': output}#{'gt': gt, 'mask': mask, 'image': image, 'output': output, 'infilled': output_comp}
     create_outputs(cvar, dataset, 0, eval_path)
 
 
