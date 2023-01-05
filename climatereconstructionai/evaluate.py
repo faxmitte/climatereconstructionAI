@@ -5,7 +5,7 @@ from numpy import ma
 
 from .model.net import CRAINet
 from .utils.evaluation import infill, create_evaluation_report, create_evaluation_graphs, create_evaluation_maps, \
-    create_evaluation_images
+    create_evaluation_images, create_scatter_plots
 from .utils.io import load_ckpt
 from . import config as cfg
 
@@ -82,6 +82,13 @@ def evaluate(arg_file=None, prog_func=None):
             os.makedirs('{}/maps'.format(cfg.evaluation_dirs[0]))
         gt, outputs = load_data(gt, outputs)
         create_evaluation_maps(gt, outputs)
+
+    # create scatter plots
+    if cfg.create_scatter:
+        if not os.path.exists('{}/scatter'.format(cfg.evaluation_dirs[0])):
+            os.makedirs('{}/scatter'.format(cfg.evaluation_dirs[0]))
+        gt, outputs = load_data(gt, outputs)
+        create_scatter_plots(gt, outputs)
 
     # create images
     if cfg.create_images:

@@ -356,6 +356,33 @@ def create_evaluation_graphs(gt, outputs):
     plot_ts('AME', '{}_METS'.format(cfg.eval_names[0]), rmse_over_mean_timeseries, time, 'mm/h')
 
 
+def create_scatter_plots(gt, outputs):
+    for output_name, output in outputs.items():
+        gt_sum = np.sum(gt, axis=(1, 2))
+        output_sum = np.sum(output, axis=(1, 2))
+        plt.scatter(gt_sum, output_sum, s=1)
+        plt.plot([np.min(gt_sum), np.max(gt_sum)],
+                 [np.min(gt_sum), np.max(gt_sum)],
+                 color='red')
+        plt.xlabel('Ground truth')
+        plt.ylabel(output_name)
+        plt.savefig('{}/scatter/{}_fldsum_{}.pdf'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], output_name),
+                    bbox_inches='tight')
+        plt.clf()
+
+        gt_sum = np.sum(gt, axis=0)
+        output_sum = np.sum(output, axis=0)
+        plt.scatter(gt_sum, output_sum, s=1)
+        plt.plot([np.min(gt_sum), np.max(gt_sum)],
+                 [np.min(gt_sum), np.max(gt_sum)],
+                 color='red')
+        plt.xlabel('Ground truth')
+        plt.ylabel(output_name)
+        plt.savefig('{}/scatter/{}_timsum_{}.pdf'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], output_name),
+                    bbox_inches='tight')
+        plt.clf()
+
+
 def create_evaluation_maps(gt, outputs):
     init_font()
     plt.rcParams.update({'font.family': 'Times New Roman', 'font.size': 22})
