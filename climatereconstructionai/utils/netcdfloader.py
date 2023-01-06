@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch
 import xarray as xr
+import h5py
 from torch.utils.data import Dataset, Sampler
 
 from .netcdfchecker import dataset_formatter
@@ -11,21 +12,20 @@ from .normalizer import img_normalization, bnd_normalization
 from .. import config as cfg
 
 
-def load_steadymask(path, mask_names, data_types, device, lazy=True):
+def load_steadymask(path, mask_names, data_types, device):
     if mask_names is None:
         return None
     else:
         assert len(mask_names) == cfg.out_channels
         if cfg.n_target_data == 0:
-            steady_mask, _ = load_netcdf(path, mask_names, data_types[:cfg.out_channels])
+            target_types = data_types[:cfg.out_channels]
         else:
-            steady_mask, _ = load_netcdf(path, mask_names, data_types[-cfg.n_target_data:])
+            target_types = data_types[-cfg.n_target_data:]
+        steady_mask, _ = load_netcdf(path, mask_names, target_types)
 
-        if lazy:
-            # stack + squeeze ensures that it works with steady masks with one timestep or no timestep
-            return torch.stack([torch.from_numpy(mask).to(device) for mask in steady_mask]).squeeze()
-        else:
-            return torch.stack([torch.from_numpy(mask.values).to(device) for mask in steady_mask]).squeeze()
+        # stack + squeeze ensures that it works with steady masks with one timestep or no timestep
+        return torch.stack([torch.from_numpy(steady_mask[i].get(target_types[i])[:]).to(device)
+                            for i in range(cfg.out_channels)]).squeeze()
 
 
 class InfiniteSampler(Sampler):
@@ -50,32 +50,32 @@ class InfiniteSampler(Sampler):
                 i = 0
 
 
-def nc_loadchecker(filename, data_type, image_size, keep_dss=False):
+def nc_loadchecker(filename, data_type, image_size, engine="h5py"):
     basename = filename.split("/")[-1]
 
     if not os.path.isfile(filename):
         print('File {} not found.'.format(filename))
 
     try:
-        ds = xr.open_dataset(filename, decode_times=False)
+        if engine == "xarray":
+            ds = xr.open_dataset(filename, decode_times=False)
+        else:
+            ds = h5py.File(filename, 'r')
     except Exception:
         raise ValueError('Impossible to read {}.'
                          '\nPlease, check that it is a netCDF file and it is not corrupted.'.format(basename))
 
-    ds1 = dataset_formatter(ds, data_type, image_size, basename)
-
-    if keep_dss:
+    if engine == "xarray":
+        ds1 = dataset_formatter(ds, data_type, image_size, basename)
         dtype = ds[data_type].dtype
         ds = ds.drop_vars(data_type)
         ds[data_type] = np.empty(0, dtype=dtype)
-        dss = [ds, ds1]
+        return [ds, ds1], ds1, ds1.get(data_type).shape[0]
     else:
-        dss = None
-
-    return dss, getattr(ds1, data_type), getattr(ds1, data_type).shape[0]
+        return None, ds, ds.get(data_type).shape[0]
 
 
-def load_netcdf(path, data_names, data_types, keep_dss=False):
+def load_netcdf(path, data_names, data_types, engine="h5py"):
     if data_names is None:
         return None, None
     else:
@@ -83,11 +83,11 @@ def load_netcdf(path, data_names, data_types, keep_dss=False):
         assert ndata == len(data_types)
 
         dss, data, lengths = zip(*[nc_loadchecker('{}{}'.format(path, data_names[i]), data_types[i], cfg.image_sizes[i],
-                                   keep_dss=keep_dss) for i in range(ndata)])
+                                   engine=engine) for i in range(ndata)])
 
         assert len(set(lengths)) == 1
 
-        if keep_dss:
+        if engine == "xarray":
             return dss, data, lengths[0]
         else:
             return data, lengths[0]
@@ -105,7 +105,7 @@ class NetCDFLoader(Dataset):
         mask_path = mask_root
         if split == 'infill':
             data_path = '{:s}/test/'.format(data_root)
-            self.xr_dss, self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types, keep_dss=True)
+            self.xr_dss, self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types, engine="xarray")
         else:
             if split == 'train':
                 data_path = '{:s}/train/'.format(data_root)
@@ -123,7 +123,7 @@ class NetCDFLoader(Dataset):
             if not cfg.shuffle_masks:
                 assert self.img_length == self.mask_length
 
-        self.img_mean, self.img_std, self.img_tf = img_normalization(self.img_data)
+        self.img_mean, self.img_std, self.img_tf = img_normalization(self.img_data, self.data_types)
 
         self.bounds = bnd_normalization(self.img_mean, self.img_std, stat_target)
 
@@ -131,11 +131,11 @@ class NetCDFLoader(Dataset):
 
         if self.mask_data is None:
             # Get masks from images
-            image = self.img_data[ind_data][mask_indices].values
+            image = np.array(self.img_data[ind_data].get(self.data_types[ind_data])[mask_indices])
             mask = torch.from_numpy((1 - (np.isnan(image))).astype(image.dtype))
         else:
-            mask = torch.from_numpy(self.mask_data[ind_data][mask_indices].values)
-        image = self.img_data[ind_data][img_indices].values
+            mask = torch.from_numpy(np.array(self.mask_data[ind_data][mask_indices]))
+        image = np.array(self.img_data[ind_data].get(self.data_types[ind_data])[img_indices])
         image = torch.from_numpy(np.nan_to_num(image))
 
         if cfg.normalize_data:

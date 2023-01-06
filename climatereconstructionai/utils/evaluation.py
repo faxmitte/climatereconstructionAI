@@ -122,7 +122,7 @@ def infill(model, dataset):
     for key in keys[:4]:
         data_dict[key] = torch.cat(data_dict[key])
 
-    steady_mask = load_steadymask(cfg.mask_dir, cfg.steady_masks, cfg.data_types, cfg.device, lazy=False)
+    steady_mask = load_steadymask(cfg.mask_dir, cfg.steady_masks, cfg.data_types, cfg.device)
     if steady_mask is not None:
         steady_mask = 1 - steady_mask.to(torch.device('cpu'))
         for key in ('gt', 'image', 'output'):
