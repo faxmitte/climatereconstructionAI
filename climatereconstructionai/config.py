@@ -167,7 +167,7 @@ def set_train_args(arg_file=None):
                             help="Parent directory of the training checkpoints and the snapshot images")
     arg_parser.add_argument('--resume-iter', type=int, help="Iteration step from which the training will be resumed")
     arg_parser.add_argument('--batch-size', type=int, default=18, help="Batch size")
-    arg_parser.add_argument('--n-threads', type=int, default=64, help="Number of threads")
+    arg_parser.add_argument('--n-workers', type=int, default=0, help="Number of workers for the data loader")
     arg_parser.add_argument('--multi-gpus', action='store_true', help="Use multiple GPUs, if any")
     arg_parser.add_argument('--finetune', action='store_true',
                             help="Enable the fine tuning mode (use fine tuning parameterization "
