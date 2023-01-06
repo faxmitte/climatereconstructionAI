@@ -146,6 +146,7 @@ def load_data(gt, outputs):
     if cfg.eval_threshold:
         mask[gt < cfg.eval_threshold] = 1
     gt = ma.masked_array(gt, mask)[:, :, :]
+    gt = ma.masked_invalid(gt)
     outputs = {}
     for i in range(len(cfg.evaluation_dirs)):
         if cfg.eval_range:
