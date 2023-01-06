@@ -141,6 +141,8 @@ def load_data(gt, outputs):
         gt = gt[:, 0, :, :]
     if mask.ndim == 4:
         mask = mask[:, 0, :, :]
+    if len(gt) != len(mask):
+        mask = np.repeat(mask, len(gt), axis=0)
     if cfg.eval_threshold:
         mask[gt < cfg.eval_threshold] = 1
     gt = ma.masked_array(gt, mask)[:, :, :]
