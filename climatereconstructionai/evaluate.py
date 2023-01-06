@@ -2,7 +2,7 @@ import os
 
 import h5py
 from numpy import ma
-
+import numpy as np
 from .model.net import CRAINet
 from .utils.evaluation import infill, create_evaluation_report, create_evaluation_graphs, create_evaluation_maps, \
     create_evaluation_images, create_scatter_plots
