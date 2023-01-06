@@ -87,7 +87,7 @@ def infill(model, dataset):
     if not os.path.exists(cfg.evaluation_dirs[0]):
         os.makedirs('{:s}'.format(cfg.evaluation_dirs[0]))
 
-    data_dict = {'image': [], 'mask': [], 'gt': [], 'output': [], 'infilled': []}
+    data_dict = {'image': [], 'mask': [], 'gt': [], 'output': []}
     keys = list(data_dict.keys())
 
     partitions = get_partitions(model.parameters(), dataset.img_length)
@@ -128,8 +128,11 @@ def infill(model, dataset):
         for key in ('gt', 'image', 'output'):
             data_dict[key] /= steady_mask
 
-    data_dict["infilled"] = data_dict["mask"] * data_dict["image"] + (1 - data_dict["mask"]) * data_dict["output"]
-    data_dict["image"][np.where(data_dict["mask"] == 0)] = np.nan
+    if cfg.n_target_data == 0:
+        data_dict["infilled"] = data_dict["mask"] * data_dict["image"] + (1 - data_dict["mask"]) * data_dict["output"]
+        data_dict["image"][np.where(data_dict["mask"] == 0)] = np.nan
+    else:
+        del data_dict["image"]
 
     return data_dict
 
@@ -141,12 +144,10 @@ def create_outputs(outputs, dataset, eval_path, stat_target, suffix=""):
 
     if cfg.n_target_data == 0:
         mean_val, std_val = dataset.img_mean[:cfg.out_channels], dataset.img_std[:cfg.out_channels]
-        cnames = ["gt", "mask", "image", "output", "infilled"]
         pnames = ["image", "infilled"]
     else:
         mean_val = dataset.img_mean[-cfg.n_target_data:]
         std_val = dataset.img_std[-cfg.n_target_data:]
-        cnames = ["gt", "mask", "output"]
         pnames = ["gt", "output"]
 
     n_out = len(outputs)
@@ -156,7 +157,7 @@ def create_outputs(outputs, dataset, eval_path, stat_target, suffix=""):
         ind = -cfg.n_target_data + j
         data_type = cfg.data_types[ind]
 
-        for cname in cnames:
+        for cname in outputs[0].keys():
 
             output_name = '{}_{}'.format(eval_path[j], cname)
 
