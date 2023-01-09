@@ -126,7 +126,9 @@ def load_data(gt, outputs):
     if cfg.eval_range:
         r = (int(cfg.eval_range[0]), int(cfg.eval_range[1]))
         gt = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_gt.nc'), 'r').get(cfg.data_types[0])[r[0]:r[1], :, :]
-        mask = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_mask.nc'), 'r').get(cfg.data_types[0])[r[0]:r[1], :, :]
+        mask = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_mask.nc'), 'r').get(cfg.data_types[0])
+        if len(mask) > 1:
+            mask = mask[r[0]:r[1], :, :]
     else:
         gt = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_gt.nc'), 'r').get(cfg.data_types[0])[:, :, :]
         mask = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_mask.nc'), 'r').get(cfg.data_types[0])[:, :, :]
