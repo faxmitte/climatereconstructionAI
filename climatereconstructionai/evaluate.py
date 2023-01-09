@@ -147,8 +147,9 @@ def load_data(gt, outputs):
         mask = np.repeat(mask, len(gt), axis=0)
     if cfg.eval_threshold:
         mask[gt < cfg.eval_threshold] = 1
-    gt = ma.masked_array(gt, mask)[:, :, :]
-    gt = ma.masked_invalid(gt)
+    nan_mask = np.isnan(gt)
+    combined_mask = np.logical_or(mask, nan_mask)
+    gt = np.ma.array(gt, mask=combined_mask)
     outputs = {}
     for i in range(len(cfg.evaluation_dirs)):
         if cfg.eval_range:
@@ -161,7 +162,8 @@ def load_data(gt, outputs):
         if output.ndim == 4:
             output = output[:, 0, :, :]
         output[output < 0.0] = 0.0
-        output = ma.masked_array(output, mask)[:, :, :]
+        output = np.ma.array(output, mask=combined_mask)
+
         outputs[cfg.infilled_names[i]] = output
     return gt, outputs
 
