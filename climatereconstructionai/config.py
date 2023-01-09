@@ -208,6 +208,7 @@ def set_evaluate_args(arg_file=None, prog_func=None):
     arg_parser.add_argument('--create-sum-maps', action='store_true', help="Create a Tensorboard graph of the NN")
     arg_parser.add_argument('--infill', action='store_true', help="Create a Tensorboard graph of the NN")
     arg_parser.add_argument('--create-report', action='store_true', help="Create a Tensorboard graph of the NN")
+    arg_parser.add_argument('--create-scatter', action='store_true', help="Create a Tensorboard graph of the NN")
     arg_parser.add_argument('--create-images', type=int_list, default=None,
                             help="Create plot images of the results for the comma separated list of time indices")
     arg_parser.add_argument('--create-video', action='store_true', help="Create a Tensorboard graph of the NN")

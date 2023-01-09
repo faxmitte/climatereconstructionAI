@@ -2,10 +2,10 @@ import os
 
 import h5py
 from numpy import ma
-
+import numpy as np
 from .model.net import CRAINet
 from .utils.evaluation import infill, create_evaluation_report, create_evaluation_graphs, create_evaluation_maps, \
-    create_evaluation_images
+    create_evaluation_images, create_scatter_plots
 from .utils.io import load_ckpt
 from . import config as cfg
 
@@ -83,6 +83,13 @@ def evaluate(arg_file=None, prog_func=None):
         gt, outputs = load_data(gt, outputs)
         create_evaluation_maps(gt, outputs)
 
+    # create scatter plots
+    if cfg.create_scatter:
+        if not os.path.exists('{}/scatter'.format(cfg.evaluation_dirs[0])):
+            os.makedirs('{}/scatter'.format(cfg.evaluation_dirs[0]))
+        gt, outputs = load_data(gt, outputs)
+        create_scatter_plots(gt, outputs)
+
     # create images
     if cfg.create_images:
         if not os.path.exists('{}/images'.format(cfg.evaluation_dirs[0])):
@@ -136,9 +143,12 @@ def load_data(gt, outputs):
         gt = gt[:, 0, :, :]
     if mask.ndim == 4:
         mask = mask[:, 0, :, :]
+    if len(gt) != len(mask):
+        mask = np.repeat(mask, len(gt), axis=0)
     if cfg.eval_threshold:
         mask[gt < cfg.eval_threshold] = 1
     gt = ma.masked_array(gt, mask)[:, :, :]
+    gt = ma.masked_invalid(gt)
     outputs = {}
     for i in range(len(cfg.evaluation_dirs)):
         if cfg.eval_range:
