@@ -357,6 +357,9 @@ def create_evaluation_graphs(gt, outputs):
 
 
 def create_scatter_plots(gt, outputs):
+    fld_max = np.max([np.sum(output, axis=(1, 2)) for _, output in outputs.items()])
+    timsum_max = np.max([np.sum(output, axis=0) for _, output in outputs.items()])
+
     for output_name, output in outputs.items():
         gt_sum = np.sum(gt, axis=(1, 2))
         output_sum = np.sum(output, axis=(1, 2))
@@ -366,6 +369,9 @@ def create_scatter_plots(gt, outputs):
                  color='red')
         plt.xlabel('Ground truth')
         plt.ylabel(output_name)
+
+        plt.ylim(-fld_max/26, fld_max + fld_max/26)
+
         plt.savefig('{}/scatter/{}_fldsum_{}.pdf'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], output_name),
                     bbox_inches='tight')
         plt.clf()
@@ -378,6 +384,9 @@ def create_scatter_plots(gt, outputs):
                  color='red')
         plt.xlabel('Ground truth')
         plt.ylabel(output_name)
+
+        plt.ylim(-timsum_max/26, timsum_max + timsum_max/timsum_max)
+
         plt.savefig('{}/scatter/{}_timsum_{}.pdf'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], output_name),
                     bbox_inches='tight')
         plt.clf()
