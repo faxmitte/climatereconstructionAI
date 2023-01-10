@@ -133,7 +133,9 @@ def load_data(gt, outputs):
     if cfg.eval_range:
         r = (int(cfg.eval_range[0]), int(cfg.eval_range[1]))
         gt = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_gt.nc'), 'r').get(cfg.data_types[0])[r[0]:r[1], :, :]
-        mask = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_mask.nc'), 'r').get(cfg.data_types[0])[r[0]:r[1], :, :]
+        mask = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_mask.nc'), 'r').get(cfg.data_types[0])
+        if len(mask) > 1:
+            mask = mask[r[0]:r[1], :, :]
     else:
         gt = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_gt.nc'), 'r').get(cfg.data_types[0])[:, :, :]
         mask = h5py.File('{}/{}{}'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], '_mask.nc'), 'r').get(cfg.data_types[0])[:, :, :]
@@ -145,8 +147,9 @@ def load_data(gt, outputs):
         mask = np.repeat(mask, len(gt), axis=0)
     if cfg.eval_threshold:
         mask[gt < cfg.eval_threshold] = 1
-    gt = ma.masked_array(gt, mask)[:, :, :]
-    gt = ma.masked_invalid(gt)
+    nan_mask = np.isnan(gt)
+    combined_mask = np.logical_or(mask, nan_mask)
+    gt = np.ma.array(gt, mask=combined_mask)
     outputs = {}
     for i in range(len(cfg.evaluation_dirs)):
         if cfg.eval_range:
@@ -159,7 +162,8 @@ def load_data(gt, outputs):
         if output.ndim == 4:
             output = output[:, 0, :, :]
         output[output < 0.0] = 0.0
-        output = ma.masked_array(output, mask)[:, :, :]
+        output = np.ma.array(output, mask=combined_mask)
+
         outputs[cfg.infilled_names[i]] = output
     return gt, outputs
 
