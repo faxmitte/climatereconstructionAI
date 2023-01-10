@@ -191,7 +191,7 @@ def create_evaluation_images(name, data_set, create_video=False, vmin=0, vmax=5,
         plt.clf()
 
     if create_video:
-        with imageio.get_writer('{}/images/movie.gif'.format(cfg.evaluation_dirs[0]), mode='I', fps=cfg.fps) as writer:
+        with imageio.get_writer('{}/images/{}.gif'.format(cfg.evaluation_dirs[0], name), mode='I', fps=cfg.fps) as writer:
             for i in range(data_set.shape[0]):
                 image = imageio.imread('{}/images/{}{}.jpg'.format(cfg.evaluation_dirs[0], name, str(i)))
                 writer.append_data(image)
