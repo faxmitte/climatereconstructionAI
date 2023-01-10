@@ -218,6 +218,8 @@ def set_evaluate_args(arg_file=None, prog_func=None):
                             help="Create plot images of the results for the comma separated list of time indices")
     arg_parser.add_argument('--partitions', type=int, default=1,
                             help="Split the climate dataset into several partitions along the time coordinate")
+    arg_parser.add_argument('--fps', type=int, default=10,
+                            help="Split the climate dataset into several partitions along the time coordinate")
     arg_parser.add_argument('--maxmem', type=int, default=None,
                             help="Maximum available memory in MB (overwrite partitions parameter)")
     arg_parser.add_argument('-f', '--load-from-file', type=str, action=LoadFromFile,
