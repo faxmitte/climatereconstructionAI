@@ -385,7 +385,7 @@ def create_scatter_plots(gt, outputs):
         plt.xlabel('Ground truth')
         plt.ylabel(output_name)
 
-        plt.ylim(-timsum_max/26, timsum_max + timsum_max/timsum_max)
+        plt.ylim(-timsum_max/26, timsum_max + timsum_max/26)
 
         plt.savefig('{}/scatter/{}_timsum_{}.pdf'.format(cfg.evaluation_dirs[0], cfg.eval_names[0], output_name),
                     bbox_inches='tight')
