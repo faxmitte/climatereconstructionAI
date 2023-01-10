@@ -62,10 +62,10 @@ def train(arg_file=None):
                                time_steps)
     iterator_train = iter(DataLoader(dataset_train, batch_size=cfg.batch_size,
                                      sampler=InfiniteSampler(len(dataset_train)),
-                                     num_workers=cfg.n_threads))
+                                     num_workers=cfg.n_workers))
     iterator_val = iter(DataLoader(dataset_val, batch_size=cfg.batch_size,
                                    sampler=InfiniteSampler(len(dataset_val)),
-                                   num_workers=cfg.n_threads))
+                                   num_workers=cfg.n_workers))
 
     steady_mask = load_steadymask(cfg.mask_dir, cfg.steady_masks, cfg.data_types, cfg.device)
 

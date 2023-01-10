@@ -85,7 +85,7 @@ usage: crai-train [-h] [--data-root-dir DATA_ROOT_DIR] [--mask-dir MASK_DIR] [--
                   [--cuda-random-seed CUDA_RANDOM_SEED] [--deterministic] [--attention] [--channel-reduction-rate CHANNEL_REDUCTION_RATE] [--disable-skip-layers]
                   [--disable-first-bn] [--masked-bn] [--global-padding] [--normalize-data] [--n-filters N_FILTERS] [--out-channels OUT_CHANNELS]
                   [--dataset-name DATASET_NAME] [--min-bounds MIN_BOUNDS] [--max-bounds MAX_BOUNDS] [--profile] [--val-names VAL_NAMES] [--snapshot-dir SNAPSHOT_DIR]
-                  [--resume-iter RESUME_ITER] [--batch-size BATCH_SIZE] [--n-threads N_THREADS] [--multi-gpus] [--finetune] [--lr LR] [--lr-finetune LR_FINETUNE]
+                  [--resume-iter RESUME_ITER] [--batch-size BATCH_SIZE] [--n-workers N_WORKERS] [--multi-gpus] [--finetune] [--lr LR] [--lr-finetune LR_FINETUNE]
                   [--max-iter MAX_ITER] [--log-interval LOG_INTERVAL] [--lr-scheduler-patience LR_SCHEDULER_PATIENCE] [--save-snapshot-image]
                   [--save-model-interval SAVE_MODEL_INTERVAL] [--n-final-models N_FINAL_MODELS] [--final-models-interval FINAL_MODELS_INTERVAL]
                   [--loss-criterion LOSS_CRITERION] [--eval-timesteps EVAL_TIMESTEPS] [-f LOAD_FROM_FILE] [--vlim VLIM]
@@ -157,7 +157,7 @@ options:
                         Iteration step from which the training will be resumed
   --batch-size BATCH_SIZE
                         Batch size
-  --n-threads N_THREADS
+  --n-workers N_WORKERS
                         Number of threads
   --multi-gpus          Use multiple GPUs, if any
   --finetune            Enable the fine tuning mode (use fine tuning parameterization and disable batch normalization

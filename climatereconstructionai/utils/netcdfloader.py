@@ -53,8 +53,7 @@ def nc_loadchecker(filename, data_type, image_size, keep_dss=False):
         print('File {} not found.'.format(filename))
 
     try:
-        # We use load_dataset instead of open_dataset because of lazy transpose
-        ds = xr.load_dataset(filename, decode_times=False)
+        ds = xr.open_dataset(filename, decode_times=False)
     except Exception:
         raise ValueError('Impossible to read {}.'
                          '\nPlease, check that it is a netCDF file and it is not corrupted.'.format(basename))
@@ -65,11 +64,12 @@ def nc_loadchecker(filename, data_type, image_size, keep_dss=False):
         dtype = ds[data_type].dtype
         ds = ds.drop_vars(data_type)
         ds[data_type] = np.empty(0, dtype=dtype)
-        dss = [ds, ds1]
+        return [ds, ds1], ds1[data_type].values, ds1[data_type].shape[0]
     else:
-        dss = None
-
-    return dss, ds1[data_type].values, ds1[data_type].shape[0]
+        if cfg.n_workers == 0:
+            return None, ds[data_type].values, ds[data_type].shape[0]
+        else:
+            return None, ds[data_type], ds[data_type].shape[0]
 
 
 def load_netcdf(path, data_names, data_types, keep_dss=False):
@@ -82,7 +82,6 @@ def load_netcdf(path, data_names, data_types, keep_dss=False):
         dss, data, lengths = zip(*[nc_loadchecker('{}{}'.format(path, data_names[i]), data_types[i], cfg.image_sizes[i],
                                    keep_dss=keep_dss) for i in range(ndata)])
 
-        # if cfg.input_data_index is None:
         assert len(set(lengths)) == 1
 
         if keep_dss:
@@ -129,11 +128,11 @@ class NetCDFLoader(Dataset):
 
         if self.mask_data is None:
             # Get masks from images
-            image = self.img_data[ind_data][mask_indices]
+            image = np.array(self.img_data[ind_data][mask_indices])
             mask = torch.from_numpy((1 - (np.isnan(image))).astype(image.dtype))
         else:
-            mask = torch.from_numpy(self.mask_data[ind_data][mask_indices])
-        image = self.img_data[ind_data][img_indices]
+            mask = torch.from_numpy(np.array(self.mask_data[ind_data][mask_indices]))
+        image = np.array(self.img_data[ind_data][img_indices])
         image = torch.from_numpy(np.nan_to_num(image))
 
         if cfg.normalize_data:
