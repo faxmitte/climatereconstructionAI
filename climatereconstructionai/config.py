@@ -145,6 +145,7 @@ def set_common_args():
                             help="Disable the batch normalization on the first layer")
     arg_parser.add_argument('--masked-bn', action='store_true',
                             help="Use masked batch normalization instead of standard BN")
+    arg_parser.add_argument('--lazy-load', action='store_true', help="Use lazy loading for large datasets")
     arg_parser.add_argument('--global-padding', action='store_true', help="Use a custom padding for global dataset")
     arg_parser.add_argument('--normalize-data', action='store_true',
                             help="Normalize the input climate data to 0 mean and 1 std")
@@ -167,8 +168,7 @@ def set_train_args(arg_file=None):
                             help="Parent directory of the training checkpoints and the snapshot images")
     arg_parser.add_argument('--resume-iter', type=int, help="Iteration step from which the training will be resumed")
     arg_parser.add_argument('--batch-size', type=int, default=18, help="Batch size")
-    arg_parser.add_argument('--n-workers', type=int, default=0, help="Number of workers used in the data loader."
-                            "0 means loading all the data in the memory with xarray.")
+    arg_parser.add_argument('--n-workers', type=int, default=64, help="Number of workers used in the data loader")
     arg_parser.add_argument('--multi-gpus', action='store_true', help="Use multiple GPUs, if any")
     arg_parser.add_argument('--finetune', action='store_true',
                             help="Enable the fine tuning mode (use fine tuning parameterization "
@@ -223,4 +223,3 @@ def set_evaluate_args(arg_file=None, prog_func=None):
                             help="Load all the arguments from a text file")
     global_args(arg_parser, arg_file, prog_func)
 
-    globals()["n_workers"] = 0

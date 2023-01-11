@@ -21,7 +21,7 @@ def load_steadymask(path, mask_names, data_types, device):
         else:
             steady_mask, _ = load_netcdf(path, mask_names, data_types[-cfg.n_target_data:])
         # stack + squeeze ensures that it works with steady masks with one timestep or no timestep
-        return torch.stack([torch.from_numpy(mask).to(device) for mask in steady_mask]).squeeze()
+        return torch.stack([torch.from_numpy(np.array(mask)).to(device) for mask in steady_mask]).squeeze()
 
 
 class InfiniteSampler(Sampler):
@@ -64,12 +64,14 @@ def nc_loadchecker(filename, data_type, image_size, keep_dss=False):
         dtype = ds[data_type].dtype
         ds = ds.drop_vars(data_type)
         ds[data_type] = np.empty(0, dtype=dtype)
-        return [ds, ds1], ds1[data_type].values, ds1[data_type].shape[0]
+        dss = [ds, ds1]
     else:
-        if cfg.n_workers == 0:
-            return None, ds[data_type].values, ds[data_type].shape[0]
-        else:
-            return None, ds[data_type], ds[data_type].shape[0]
+        dss = None
+
+    if cfg.lazy_load:
+        return dss, ds[data_type], ds[data_type].shape[0]
+    else:
+        return dss, ds[data_type].values, ds[data_type].shape[0]
 
 
 def load_netcdf(path, data_names, data_types, keep_dss=False):
