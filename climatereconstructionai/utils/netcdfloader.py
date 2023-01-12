@@ -59,19 +59,18 @@ def nc_loadchecker(filename, data_type, image_size, keep_dss=False):
                          '\nPlease, check that it is a netCDF file and it is not corrupted.'.format(basename))
 
     ds1 = dataset_formatter(ds, data_type, image_size, basename)
-
-    if keep_dss:
-        dtype = ds[data_type].dtype
-        ds = ds.drop_vars(data_type)
-        ds[data_type] = np.empty(0, dtype=dtype)
-        dss = [ds, ds1]
-    else:
-        dss = None
+    ds = ds.drop_vars(data_type)
 
     if cfg.lazy_load:
-        return dss, ds[data_type], ds[data_type].shape[0]
+        data = ds1[data_type]
     else:
-        return dss, ds[data_type].values, ds[data_type].shape[0]
+        data = ds1[data_type].values
+
+    dims = ds1[data_type].dims
+    ds1 = ds1.drop_vars(data_type)
+    ds1 = ds1.drop_vars("time")
+
+    return [ds, ds1, dims], data, data.shape[0]
 
 
 def load_netcdf(path, data_names, data_types, keep_dss=False):

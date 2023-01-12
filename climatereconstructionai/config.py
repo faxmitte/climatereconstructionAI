@@ -211,12 +211,10 @@ def set_evaluate_args(arg_file=None, prog_func=None):
     arg_parser.add_argument('--eval-names', type=str_list, default='output',
                             help="Prefix used for the output filenames")
     arg_parser.add_argument('--create-graph', action='store_true', help="Create a Tensorboard graph of the NN")
-    arg_parser.add_argument('--plot-results', type=int_list, default=None,
+    arg_parser.add_argument('--plot-results', type=int_list, default=[],
                             help="Create plot images of the results for the comma separated list of time indices")
     arg_parser.add_argument('--partitions', type=int, default=1,
                             help="Split the climate dataset into several partitions along the time coordinate")
-    arg_parser.add_argument('--split-outputs', action='store_true',
-                            help="Do not merge the outputs when using multiple models")
     arg_parser.add_argument('--maxmem', type=int, default=None,
                             help="Maximum available memory in MB (overwrite partitions parameter)")
     arg_parser.add_argument('-f', '--load-from-file', type=str, action=LoadFromFile,
