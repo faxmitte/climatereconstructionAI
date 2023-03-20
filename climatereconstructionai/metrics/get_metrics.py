@@ -1,6 +1,8 @@
 import warnings
 import torch
 
+from ..loss.fft_loss import FTLoss
+from ..loss.hole_loss import HoleLoss
 from ..loss.hole_loss import HoleLoss
 from ..loss.valid_loss import ValidLoss
 from ..loss.feature_loss import FeatureLoss
@@ -21,6 +23,7 @@ def get_metrics(img_mask, loss_mask, output, gt, setname):
         'hole': {},
         'tv':{},
         'var':{},
+        'ft':{},
         'feature': {
             'outputs': ['style','prc']
             },
@@ -39,8 +42,14 @@ def get_metrics(img_mask, loss_mask, output, gt, setname):
                                     }
     }
 
-    
-    mask = img_mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+    if output.shape[2]>gt.shape[2]:
+        output = torch.unsqueeze(output[:, cfg.recurrent_steps, 0, :, :],dim=1)
+        gt = gt[:, cfg.recurrent_steps, :, :, :]
+        mask = img_mask[:, cfg.recurrent_steps, :, :, :]
+    else:
+        output = output[:, cfg.recurrent_steps, :, :, :]
+        gt = gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+        mask = img_mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
 
     if loss_mask is not None:
         mask += loss_mask
@@ -57,40 +66,40 @@ def get_metrics(img_mask, loss_mask, output, gt, setname):
     for metric in metrics:
         settings = metric_settings[metric]
 
+
         if 'valid' in metric:
-            val_loss = ValidLoss().to(cfg.device)
-            metric_output = val_loss(mask, output[:, cfg.recurrent_steps, :, :, :],
-                            gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :])
+            loss = ValidLoss().to(cfg.device)
+            metric_output = loss(mask, output, gt)
             metric_dict[f'metric/{setname}/valid']=metric_output['valid']
 
         elif 'hole' in metric:
-            val_loss = HoleLoss().to(cfg.device)
-            metric_output = val_loss(mask, output[:, cfg.recurrent_steps, :, :, :],
-                            gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :])
+            loss = HoleLoss().to(cfg.device)
+            metric_output = loss(mask, output, gt)
             metric_dict[f'metric/{setname}/hole']=metric_output['hole']
 
         elif 'tv' in metric:
-            val_loss = TotalVariationLoss().to(cfg.device)
-            metric_output = val_loss(mask, output[:, cfg.recurrent_steps, :, :, :],
-                            gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :])
+            loss = TotalVariationLoss().to(cfg.device)
+            metric_output = loss(mask, output, gt)
             metric_dict[f'metric/{setname}/tv']=metric_output['tv']
 
         elif 'var' in metric:
-            var_loss = VarLoss().to(cfg.device)
-            metric_output = var_loss(mask, output[:, cfg.recurrent_steps, :, :, :],
-                            gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :])
+            loss = VarLoss().to(cfg.device)
+            metric_output = loss(mask, output, gt)
             metric_dict[f'metric/{setname}/var']=metric_output['var']
 
         elif 'feature' in metric:
-            feat_loss = FeatureLoss(VGG16FeatureExtractor()).to(cfg.device)
-            metric_output = feat_loss(mask, output[:, cfg.recurrent_steps, :, :, :],
-                            gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :])
+            loss = FeatureLoss(VGG16FeatureExtractor()).to(cfg.device)
+            metric_output = loss(mask, output, gt)
             metric_dict[f'metric/{setname}/style']=metric_output['style']
             metric_dict[f'metric/{setname}/prc']=metric_output['prc']
 
+        elif 'ft' in metric:
+            loss = FTLoss().to(cfg.device)
+            metric_output = loss(mask, output, gt)
+            metric_dict[f'metric/{setname}/ft']=metric_output['ft']
+
         else:
-            metric_outputs = calculate_metric(metric,mask, output[:, cfg.recurrent_steps, :, :, :],
-                        gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :], torchmetrics_settings=settings['torchmetric_settings'])
+            metric_outputs = calculate_metric(metric,mask, output, gt, torchmetrics_settings=settings['torchmetric_settings'])
             
             if len(metric_outputs)>1:
                 for k, metric_name in enumerate(settings['outputs']):

@@ -1,5 +1,7 @@
 import torch
 
+from .fft_loss import FTLoss
+from .gauss_loss import GaussLoss
 from .hole_loss import HoleLoss
 from .valid_loss import ValidLoss
 from .feature_loss import FeatureLoss
@@ -48,6 +50,10 @@ class loss_criterion(torch.nn.Module):
                     criterion = TotalVariationLoss().to(cfg.device)
                 elif loss == 'var':
                     criterion = VarLoss().to(cfg.device)
+                elif loss == 'ft':
+                    criterion = FTLoss().to(cfg.device)
+                elif loss == 'gauss':
+                    criterion = GaussLoss().to(cfg.device)
                 
                 if not criterion in self.criterions.values():
                     self.criterions[loss] = criterion
@@ -81,13 +87,17 @@ class LossComputation():
 
     def get_loss(self, img_mask, loss_mask, output, gt):
 
-        mask = img_mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+        if len(cfg.gt_channels) == img_mask.shape[2]:
+            mask = img_mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+            gt = gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+        else: 
+            mask = img_mask[:, cfg.recurrent_steps, 0, :, :]
+            gt = gt[:, cfg.recurrent_steps, 0, :, :]
 
         if loss_mask is not None:
             mask += loss_mask
             assert ((mask == 0) | (mask == 1)).all(), "Not all values in mask are zeros or ones!"
 
-        loss_dict = self.criterion(mask, output[:, cfg.recurrent_steps, :, :, :],
-                            gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :])
+        loss_dict = self.criterion(mask, output[:, cfg.recurrent_steps, :, :, :],gt)
 
         return loss_dict

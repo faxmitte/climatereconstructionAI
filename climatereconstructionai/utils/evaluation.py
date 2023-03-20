@@ -198,7 +198,7 @@ def calculate_distributions(mask, steady_mask, output, gt, domain="valid", num_s
     
     value_list_pred = []
     value_list_target = []
-    for ch in range(output.shape[2]):
+    for ch in range(gt.shape[2]):
         mask_ch = mask[:,:,ch,:,:]
         gt_ch = gt[:,:,ch,:,:]
         output_ch = output[:,:,ch,:,:]
@@ -315,7 +315,7 @@ def create_error_map(mask, steady_mask, output, gt, num_samples=3, operation="AE
 
     fig, axs = plt.subplots(num_channels, num_samples, squeeze=False, figsize=(num_samples*7, num_channels*7))
 
-    for ch in range(output.shape[2]):
+    for ch in range(gt.shape[2]):
         mask_ch = mask[:,:,ch,:,:]
         gt_ch = gt[:,:,ch,:,:]
         output_ch = output[:,:,ch,:,:] 
