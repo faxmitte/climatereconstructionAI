@@ -12,7 +12,8 @@ def get_format(dataset_name):
 
 def get_passed_arguments(argv, arg_parser):
     passed_arguments = {}
-
+    if argv[0]=='--load-from-file' or  argv[0]=='-f':
+        argv = open(argv[1]).read().split()
     args = vars(arg_parser.parse_args(argv))
     for action in vars(arg_parser)['_actions']:
         option_str = action.option_strings[-1]
@@ -84,7 +85,7 @@ def global_args(parser, arg_file=None, prog_func=None):
         import sys
         argv = sys.argv[1:]
     else:
-        argv = open(arg_file).read().split()
+        argv = ['--load-from-file', arg_file]
 
     global progress_fwd
     progress_fwd = prog_func
