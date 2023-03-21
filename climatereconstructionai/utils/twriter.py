@@ -55,7 +55,15 @@ class writer():
         hparams_dict = {}
         for key, value in parameters_dict.items():
             if isinstance(value, list):
-                value = value[0]
+                if key=='data_names':
+                    for k, data_name in enumerate(value):
+                        if str.isnumeric(data_name.replace('.nc','')):
+                            if k < (len(value)-cfg.n_target_data):
+                                hparams_dict['source'] = int(data_name.replace('.nc',''))
+                            else:
+                                hparams_dict['target'] = int(data_name.replace('.nc',''))
+                else:
+                    value = value[0]
             if type(value) in (int, float) or ((type(value)==bool) and ('plot' not in key)):
                 hparams_dict[key] = value
             elif key=='pretrained_model':
