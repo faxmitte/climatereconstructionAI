@@ -9,6 +9,23 @@ from .bounds_scaler import constrain_bounds
 from .. import config as cfg
 
 
+class GaussActivation(nn.Module):
+    def __init__(self, dim_ch=1, activation_mu=nn.LeakyReLU(inplace=True)):
+        super().__init__() 
+        self.dim_ch = dim_ch
+        self.activation_mu = activation_mu
+        self.activation_std = nn.ReLU(inplace=True)
+
+    def forward(self, input):
+        mu = input.narrow(self.dim_ch,0,1)
+        var = input.narrow(self.dim_ch,1,1)
+
+        mu = self.activation_mu(mu)
+        var = self.activation_mu(var)
+
+        return input
+    
+
 def progstat(index, numel):
     if cfg.progress_fwd is not None:
         cfg.progress_fwd('Infilling...', int(100 * (index + 1) / numel))
@@ -80,8 +97,12 @@ class CRAINet(nn.Module):
         decoding_layers = []
         for i in range(self.net_depth):
             if i == self.net_depth - 1:
-                activation = None
-                bias = True
+                if cfg.lambda_dict['gauss']>0:
+                    activation = GaussActivation()
+                    bias = False
+                else:
+                    activation = None
+                    bias = True
             else:
                 activation = nn.LeakyReLU()
                 bias = False
