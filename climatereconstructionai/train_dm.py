@@ -3,16 +3,15 @@ import os
 import torch
 import torch.multiprocessing
 
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import copy
 import numpy as np
 
 from . import config as cfg
-from .loss import get_loss
 from .metrics.get_metrics import get_metrics
 from .model.net import CRAINet
+from .model import DM as DM
 
 from .utils.io import load_ckpt, load_model, save_ckpt
 from .utils.netcdfloader import NetCDFLoader, InfiniteSampler, load_steadymask
@@ -20,8 +19,24 @@ from .utils.profiler import load_profiler
 from .utils import twriter, early_stopping, evaluation
 
 
-def train(arg_file=None):
-    
+def train_dm(arg_file=None):
+
+    # load gmodel ----------------
+    gmodel_path =  '/Users/maxwitte/work/crai_sr/ICON_submesoNA/auto_gauss/appr1/run_0/ckpt/best.pth'
+    g_model_file = '/Users/maxwitte/work/crai_sr/ICON_submesoNA/auto_gauss/appr1/run_0/run_0_local.inp'
+    cfg.set_train_args(g_model_file)
+    gmodel = CRAINet(img_size=cfg.image_sizes[0],
+                    enc_dec_layers=cfg.encoding_layers[0],
+                    pool_layers=cfg.pooling_layers[0],
+                    in_channels=2 * cfg.channel_steps + 1,
+                    out_channels=cfg.out_channels).to(cfg.device)
+    ckpt_dict = load_ckpt(gmodel_path, cfg.device)
+    load_model(ckpt_dict, gmodel)
+
+    for param in gmodel.parameters():
+        param.requires_grad = False
+    # ----------------------------
+
     cfg.set_train_args(arg_file)
     
     print("* Number of GPUs: ", torch.cuda.device_count())
@@ -80,7 +95,7 @@ def train(arg_file=None):
         model = CRAINet(img_size=cfg.image_sizes[0],
                         enc_dec_layers=cfg.encoding_layers[0],
                         pool_layers=cfg.pooling_layers[0],
-                        in_channels=2 * cfg.channel_steps + 1,
+                        in_channels=2 ,
                         out_channels=cfg.out_channels,
                         fusion_img_size=cfg.image_sizes[1],
                         fusion_enc_layers=cfg.encoding_layers[1],
@@ -92,9 +107,17 @@ def train(arg_file=None):
         model = CRAINet(img_size=cfg.image_sizes[0],
                         enc_dec_layers=cfg.encoding_layers[0],
                         pool_layers=cfg.pooling_layers[0],
-                        in_channels=2 * cfg.channel_steps + 1,
+                        in_channels=2,
                         out_channels=cfg.out_channels,
                         bounds=dataset_train.bounds).to(cfg.device)
+
+    # settings DM
+    use_sigma = True
+    use_mu = True
+    min_val = 1e-6
+    max_val = 1e-2
+
+    dm_model = DM.DM(2000, gmodel=gmodel, min_val=min_val, max_val=max_val, use_sigma=use_sigma, use_mu=use_mu).to(cfg.device)
 
     # define learning rate
     if cfg.finetune:
@@ -106,28 +129,12 @@ def train(arg_file=None):
     
     early_stop = early_stopping.early_stopping()
 
-    loss_comp = get_loss.LossComputation()
-
     # define optimizer and loss functions
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
 
-    if cfg.lr_scheduler_patience is not None:
-        lr_scheduler = ReduceLROnPlateau(optimizer, 'min', patience=cfg.lr_scheduler_patience)
-
     # define start point
     start_iter = 0
-    if cfg.resume_iter:
-        ckpt_dict = load_ckpt('{}/ckpt/{}.pth'.format(cfg.snapshot_dir, cfg.resume_iter), cfg.device)
-        start_iter = load_model(ckpt_dict, model, optimizer)
-
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-        print('Starting from iter ', start_iter)
     
-    elif cfg.pretrained_model:
-        ckpt_dict = load_ckpt(cfg.pretrained_model, cfg.device)
-        load_model(ckpt_dict, model, optimizer)
- 
     prof = load_profiler(start_iter)
 
     if cfg.multi_gpus:
@@ -147,42 +154,15 @@ def train(arg_file=None):
 
         # train model
         model.train()
-        image, mask, gt = [x.to(cfg.device) for x in next(iterator_train)]
-        output = model(image, mask)
 
-        train_loss = loss_comp.get_loss(mask, steady_mask, output, gt)
-
+        train_loss, _, _ = dm_model.diffusion_loss(model,[x.to(cfg.device) for x in next(iterator_train)])
         optimizer.zero_grad()
         train_loss['total'].backward()
         optimizer.step()
 
         if (cfg.log_interval and n_iter % cfg.log_interval == 0):
             writer.update_scalars(train_loss, n_iter, 'train')
-         
-            model.eval()
-            val_losses = []
-            for _ in range(cfg.n_iters_val): 
-                image, mask, gt = [x.to(cfg.device) for x in next(iterator_val)]
-                with torch.no_grad():
-                    output = model(image, mask)
-                val_losses.append(list(loss_comp.get_loss(mask, steady_mask, output, gt).values()))
-
-            val_loss = torch.tensor(val_losses).mean(dim=0)
-            val_loss = dict(zip(train_loss.keys(),val_loss))
-
-            early_stop.update(val_loss['total'].item() , n_iter, model_save=model)
-            
-            writer.update_scalars(val_loss, n_iter, 'val')
-
-            if cfg.early_stopping:
-                writer.update_scalar('val', 'loss_gradient', early_stop.criterion_diff , n_iter)
                                        
-            if cfg.save_snapshot_image:
-                fig = evaluation.create_snapshot_image(model, dataset_val, '{:s}/images/iter_{:d}'.format(cfg.snapshot_dir, n_iter))
-           
-            if cfg.lr_scheduler_patience is not None:
-                lr_scheduler.step(val_loss['total'])
-        
             
         if n_iter % cfg.save_model_interval == 0:
             save_ckpt('{:s}/ckpt/{:d}.pth'.format(cfg.snapshot_dir, n_iter), stat_target,
@@ -204,24 +184,6 @@ def train(arg_file=None):
                       [(str(early_stop.global_iter_best), early_stop.global_iter_best, early_stop.best_model, optimizer)])
 
     save_ckpt('{:s}/ckpt/final.pth'.format(cfg.snapshot_dir), stat_target, savelist)
-
-    # run final validation over n_iters_val
-    if cfg.val_metrics is not None:
-        val_metrics = []
-        for _ in range(cfg.n_iters_val): 
-            image, mask, gt = [x.to(cfg.device) for x in next(iterator_val)]
-            with torch.no_grad():
-                output = model(image, mask)
-            metric_dict = get_metrics(mask, steady_mask, output, gt, 'val')
-            val_metrics.append(list(metric_dict.values()))
-        val_metrics = torch.tensor(val_metrics).mean(dim=0)
-
-        metric_dict = dict(zip(metric_dict.keys(),val_metrics))
-        if cfg.early_stopping:
-            metric_dict.update({'iterations': n_iter, 'iterations_best_model': early_stop.global_iter_best})
-        writer.update_hparams(metric_dict, n_iter)
-
-    writer.add_visualizations(mask, steady_mask, output, gt, n_iter, 'val')
 
     writer.close()
 

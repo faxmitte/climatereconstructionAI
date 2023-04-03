@@ -10,20 +10,20 @@ from .. import config as cfg
 
 
 class GaussActivation(nn.Module):
-    def __init__(self, dim_ch=1, activation_mu=nn.LeakyReLU(inplace=True)):
+    def __init__(self, dim_ch=1, activation_mu=nn.LeakyReLU()):
         super().__init__() 
         self.dim_ch = dim_ch
-        self.activation_mu = activation_mu
-        self.activation_std = nn.ReLU(inplace=True)
+        self.activation_mu = None
+        self.activation_std = nn.ReLU()
 
     def forward(self, input):
-        mu = input.narrow(self.dim_ch,0,1)
-        var = input.narrow(self.dim_ch,1,1)
-
-        mu = self.activation_mu(mu)
-        var = self.activation_mu(var)
-
-        return input
+        if self.activation_mu is not None:
+            mu = self.activation_mu(input[:,0,:,:])
+        else:
+            mu = input[:,0,:,:]
+        std = self.activation_std(input[:,1,:,:])
+        
+        return torch.concat((mu.unsqueeze(dim=self.dim_ch),std.unsqueeze(dim=self.dim_ch)),self.dim_ch)
     
 
 def progstat(index, numel):
@@ -38,6 +38,7 @@ class CRAINet(nn.Module):
 
         super().__init__()
 
+        self.bounds = bounds
         self.freeze_enc_bn = False
         self.net_depth = enc_dec_layers + pool_layers
 
@@ -97,9 +98,10 @@ class CRAINet(nn.Module):
         decoding_layers = []
         for i in range(self.net_depth):
             if i == self.net_depth - 1:
-                if cfg.lambda_dict['gauss']>0:
-                    activation = GaussActivation()
-                    bias = False
+                if 'gauss' in cfg.lambda_dict:
+                    if cfg.lambda_dict['gauss']>0:
+                        activation = GaussActivation()
+                        bias = True
                 else:
                     activation = None
                     bias = True
@@ -111,7 +113,10 @@ class CRAINet(nn.Module):
                 kernel=dec_conv_configs[i]['kernel'], stride=(1, 1), activation=activation, bias=bias))
         self.decoder = nn.ModuleList(decoding_layers)
 
-        self.binder = constrain_bounds(bounds)
+        if bounds is not None:
+            self.binder = constrain_bounds(bounds)
+        else:
+            self.binder = None
 
     def forward(self, input, input_mask):
         # create lists for skip connections
@@ -203,8 +208,9 @@ class CRAINet(nn.Module):
                                                              h_mask, hs_mask[self.net_depth - i - 1],
                                                              None)
             progstat(i + self.net_depth, 2 * self.net_depth)
-
-        h = self.binder.scale(h)
+        
+        if self.bounds is not None:
+            h = self.binder.scale(h)
 
         # return last element of output from last decoding layer
         return h

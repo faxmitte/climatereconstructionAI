@@ -50,3 +50,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 crai-evaluate = "climatereconstructionai.evaluate:evaluate"
 crai-train = "climatereconstructionai.train:train"
+crai-train_dm = "climatereconstructionai.train_dm:train_dm"
