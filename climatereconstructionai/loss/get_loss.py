@@ -58,11 +58,21 @@ class loss_criterion(torch.nn.Module):
                 if not criterion in self.criterions.values():
                     self.criterions[loss] = criterion
 
-    def forward(self, mask, output, gt):
+    def forward(self, mask, output, gt, equal_ch_sizes=True):
+        if equal_ch_sizes:
+            mask = mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+            gt = gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
+        else:
+            mask = mask[:, cfg.recurrent_steps, 0, :, :]
+            gt = gt[:, cfg.recurrent_steps, 0, :, :]
         
         loss_dict = {}
-        for _, criterion in self.criterions.items():
-            loss_dict.update(criterion(mask, output, gt))
+        for loss, criterion in self.criterions.items():
+            if not loss=='gauss':
+                l = criterion(mask.unsqueeze(dim=1), output[:, 0, :, :].unsqueeze(dim=1), gt.unsqueeze(dim=1))
+            else:
+                l = criterion(mask, output, gt)
+            loss_dict.update(l)
 
         loss_dict["total"] = 0
         for loss, lambda_value in cfg.lambda_dict.items():
@@ -87,17 +97,12 @@ class LossComputation():
 
     def get_loss(self, img_mask, loss_mask, output, gt):
 
-        if len(cfg.gt_channels) == img_mask.shape[2]:
-            mask = img_mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
-            gt = gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
-        else: 
-            mask = img_mask[:, cfg.recurrent_steps, 0, :, :]
-            gt = gt[:, cfg.recurrent_steps, 0, :, :]
-
+        equal_ch_sizes = len(cfg.gt_channels) == img_mask.shape[2]
+        mask = img_mask
         if loss_mask is not None:
             mask += loss_mask
             assert ((mask == 0) | (mask == 1)).all(), "Not all values in mask are zeros or ones!"
 
-        loss_dict = self.criterion(mask, output[:, cfg.recurrent_steps, :, :, :],gt)
+        loss_dict = self.criterion(mask, output[:, cfg.recurrent_steps, :, :, :],gt, equal_ch_sizes)
 
         return loss_dict

@@ -136,9 +136,13 @@ def global_args(parser, arg_file=None, prog_func=None):
     else:
         recurrent_steps = 0
 
-
-
-
+    global use_diffusion
+    use_diffusion = False
+    
+    if diffusion_settings_path is not None:
+        use_diffusion = True
+        with open(diffusion_settings_path, 'r') as f:
+            diffusion_settings = json.load(f)
     
 
 
@@ -201,6 +205,10 @@ def set_common_args():
                             help="Comma separated list of values defining the permitted upper-bound of output values")
     arg_parser.add_argument('--profile', action='store_true', help="Profile code using tensorboard profiler")
     arg_parser.add_argument('--writer-mode', type=str, default='model_config', help="tensorboard writer mode")
+    arg_parser.add_argument('--apply-img-norm', action='store_true', default=False,
+                            help="if each image should be normed")
+    arg_parser.add_argument('--diffusion-settings-path', type=str, default=None,
+                            help="path to the json storing the options for the diffusion model")
     return arg_parser
 
 
@@ -260,7 +268,7 @@ def set_train_args(arg_file=None):
     arg_parser.add_argument('--pretrained-model', type=str, default=None,
                             help="Path of the pretrained model to use")
     arg_parser.add_argument('--apply-transform', action='store_true', default=False,
-                            help="if training data should be randomly transformed")             
+                            help="if training data should be randomly transformed")
 
     global_args(arg_parser, arg_file)
 

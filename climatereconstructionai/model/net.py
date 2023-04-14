@@ -98,13 +98,13 @@ class CRAINet(nn.Module):
         decoding_layers = []
         for i in range(self.net_depth):
             if i == self.net_depth - 1:
-                if 'gauss' in cfg.lambda_dict:
-                    if cfg.lambda_dict['gauss']>0:
-                        activation = GaussActivation()
-                        bias = True
-                else:
-                    activation = None
-                    bias = True
+                activation = None
+                bias = True
+                if hasattr(cfg, 'lambda_dict'):
+                    if 'gauss' in cfg.lambda_dict:
+                        if cfg.lambda_dict['gauss']>0:
+                            activation = None #GaussActivation()
+                            bias = True
             else:
                 activation = nn.LeakyReLU()
                 bias = False

@@ -12,33 +12,19 @@ from . import config as cfg
 from .metrics.get_metrics import get_metrics
 from .model.net import CRAINet
 from .model import DM as DM
+from .model import diffusion as diffusion
 
 from .utils.io import load_ckpt, load_model, save_ckpt
-from .utils.netcdfloader import NetCDFLoader, InfiniteSampler, load_steadymask
+from .utils.netcdfloader import NetCDFLoader, InfiniteSampler, load_steadymask, img_norm
 from .utils.profiler import load_profiler
 from .utils import twriter, early_stopping, evaluation
+from .model import unet as unet
 
 
 def train_dm(arg_file=None):
-
-    # load gmodel ----------------
-    gmodel_path =  '/Users/maxwitte/work/crai_sr/ICON_submesoNA/auto_gauss/appr1/run_0/ckpt/best.pth'
-    g_model_file = '/Users/maxwitte/work/crai_sr/ICON_submesoNA/auto_gauss/appr1/run_0/run_0_local.inp'
-    cfg.set_train_args(g_model_file)
-    gmodel = CRAINet(img_size=cfg.image_sizes[0],
-                    enc_dec_layers=cfg.encoding_layers[0],
-                    pool_layers=cfg.pooling_layers[0],
-                    in_channels=2 * cfg.channel_steps + 1,
-                    out_channels=cfg.out_channels).to(cfg.device)
-    ckpt_dict = load_ckpt(gmodel_path, cfg.device)
-    load_model(ckpt_dict, gmodel)
-
-    for param in gmodel.parameters():
-        param.requires_grad = False
-    # ----------------------------
-
+   
     cfg.set_train_args(arg_file)
-    
+
     print("* Number of GPUs: ", torch.cuda.device_count())
 
     torch.multiprocessing.set_sharing_strategy('file_system')
@@ -72,15 +58,15 @@ def train_dm(arg_file=None):
 
     # create data sets
     dataset_train = NetCDFLoader(cfg.data_root_dir, cfg.data_names, cfg.mask_dir, cfg.mask_names, 'train',
-                                 cfg.data_types, time_steps, apply_transform=cfg.apply_transform)
+                                 cfg.data_types, time_steps, apply_transform=cfg.apply_transform, apply_img_norm=cfg.apply_img_norm)
     dataset_val = NetCDFLoader(cfg.data_root_dir, cfg.val_names, cfg.mask_dir, cfg.mask_names, 'val', cfg.data_types,
                                time_steps)
     iterator_train = iter(DataLoader(dataset_train, batch_size=cfg.batch_size,
                                      sampler=InfiniteSampler(len(dataset_train)),
-                                     num_workers=cfg.n_threads, multiprocessing_context='fork'))
+                                     num_workers=cfg.n_threads))
     iterator_val = iter(DataLoader(dataset_val, batch_size=cfg.batch_size,
                                    sampler=InfiniteSampler(len(dataset_val)),
-                                   num_workers=cfg.n_threads, multiprocessing_context='fork'))
+                                   num_workers=cfg.n_threads))
 
     steady_mask = load_steadymask(cfg.mask_dir, cfg.steady_masks, cfg.data_types, cfg.device)
 
@@ -95,7 +81,7 @@ def train_dm(arg_file=None):
         model = CRAINet(img_size=cfg.image_sizes[0],
                         enc_dec_layers=cfg.encoding_layers[0],
                         pool_layers=cfg.pooling_layers[0],
-                        in_channels=2 ,
+                        in_channels=3 ,
                         out_channels=cfg.out_channels,
                         fusion_img_size=cfg.image_sizes[1],
                         fusion_enc_layers=cfg.encoding_layers[1],
@@ -107,17 +93,31 @@ def train_dm(arg_file=None):
         model = CRAINet(img_size=cfg.image_sizes[0],
                         enc_dec_layers=cfg.encoding_layers[0],
                         pool_layers=cfg.pooling_layers[0],
-                        in_channels=2,
+                        in_channels=3,
                         out_channels=cfg.out_channels,
                         bounds=dataset_train.bounds).to(cfg.device)
 
+    model = unet.UNet(in_channel=2, attn_res=[16], res_blocks=2, out_channel=1,inner_channel=64,dropout=0.2).to(cfg.device)
+
     # settings DM
-    use_sigma = True
+    use_sigma = False
     use_mu = True
     min_val = 1e-6
     max_val = 1e-2
 
-    dm_model = DM.DM(2000, gmodel=gmodel, min_val=min_val, max_val=max_val, use_sigma=use_sigma, use_mu=use_mu).to(cfg.device)
+    #dm_model = DM.DM(2000, gmodel=gmodel, min_val=min_val, max_val=max_val, use_sigma=use_sigma, use_mu=use_mu).to(cfg.device)
+
+    dm_model = diffusion.GaussianDiffusion(model, image_size=128, channels=1)
+
+    schedule_opt = {
+                "schedule": "linear",
+                "n_timestep": 2000,
+                "linear_start": 1e-6,
+                "linear_end": 1e-2
+            }
+    dm_model.set_new_noise_schedule(schedule_opt, cfg.device)
+
+    dm_model.set_loss(cfg.device)
 
     # define learning rate
     if cfg.finetune:
@@ -155,7 +155,17 @@ def train_dm(arg_file=None):
         # train model
         model.train()
 
-        train_loss, _, _ = dm_model.diffusion_loss(model,[x.to(cfg.device) for x in next(iterator_train)])
+        #train_loss, _, _ = dm_model.diffusion_loss(model,[x.to(cfg.device) for x in next(iterator_train)])
+        image, mask, gt = [x.to(cfg.device) for x in next(iterator_train)]
+     
+        x_in = {'SR':image[:,0,:,:,:], 'HR':gt[:,0,:,:,:]}
+        
+        loss = dm_model(x_in)
+
+        b, c, h, w = x_in['HR'].shape
+        loss = loss.sum()/int(b*c*h*w)
+        train_loss = {'total': loss}
+
         optimizer.zero_grad()
         train_loss['total'].backward()
         optimizer.step()
@@ -188,4 +198,4 @@ def train_dm(arg_file=None):
     writer.close()
 
 if __name__ == "__main__":
-    train()
+    train_dm()

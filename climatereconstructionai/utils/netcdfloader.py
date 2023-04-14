@@ -16,9 +16,27 @@ class RandomTransform(torch.nn.Module):
     def __init__(self, transforms):
         super().__init__()
         #self.t = random.choice([identity, random.choice(transforms)])
-        self.t = random.choice(transforms)              
+        self.t = random.choice(transforms)          
     def __call__(self, img):
         return self.t(img)
+
+class img_norm(torch.nn.Module):
+    def __init__(self, mode='minmax'):
+        super().__init__()
+        
+        if mode=='minmax':
+            self.norm = norm_img_mm
+        else:
+            self.norm = norm_img_ms
+    def __call__(self, img):
+        return self.norm(img)
+
+def norm_img_mm(image, min_max=(-1,1)):
+    img_norm = (image-image.min())/(image.max()-image.min())
+    return img_norm * (min_max[1] - min_max[0]) + min_max[0]
+
+def norm_img_ms(image):
+    return (image-image.mean())/(image.std())
 
 def identity(image):
     return image
@@ -113,7 +131,7 @@ def load_netcdf(path, data_names, data_types, keep_dss=False):
 
 
 class NetCDFLoader(Dataset):
-    def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps, stat_target=None, apply_transform=False):
+    def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps, stat_target=None, apply_transform=False, apply_img_norm=False):
         super(NetCDFLoader, self).__init__()
 
         self.random = random.Random(cfg.loop_random_seed)
@@ -121,6 +139,7 @@ class NetCDFLoader(Dataset):
         self.data_types = data_types
         self.time_steps = time_steps
         self.apply_transform = apply_transform
+        self.apply_img_norm = apply_img_norm
 
         mask_path = mask_root
         if split == 'infill':
@@ -201,6 +220,7 @@ class NetCDFLoader(Dataset):
                     rot90,
                     identity
                 ])
+        norm = img_norm()
 
         for i in range(ndata):
 
@@ -209,6 +229,9 @@ class NetCDFLoader(Dataset):
             if self.apply_transform:
                 image=transform(image)
                 mask=transform(mask)
+            
+            if self.apply_img_norm:
+                image = norm(image)
 
             if i >= ndata - cfg.n_target_data:
                 images.append(image)
