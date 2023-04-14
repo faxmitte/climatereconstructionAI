@@ -66,12 +66,18 @@ class DM(nn.Module):
 
         x_noisy = torch.sqrt(alpha_bar_t) * gt + torch.sqrt(1 - alpha_bar_t) * eps
 
-        input = torch.concat((mu,x_noisy),dim=2)
-        mask = torch.concat((mask,mask),dim=2)
+       # input = torch.concat((mu,x_noisy),dim=2)
+       # mask = torch.concat((mask,mask),dim=2)
 
-        eps_pred = model(input ,mask)
+        #eps_pred = model(input ,mask)
+        eps_pred = model(torch.cat([mu, x_noisy],dim=2).squeeze(), torch.sqrt(1 - alpha_bar_t))
 
-        loss = {'total': nn.MSELoss()(eps_pred, eps)} 
+         
+
+
+
+        #loss = {'total': nn.MSELoss(reduction='sum')(eps_pred.squeeze(), eps.squeeze())} 
+        loss = {'total': nn.L1Loss(reduction='sum')(eps_pred.squeeze(), eps.squeeze())} 
 
         return loss, eps, x_noisy
     
@@ -80,33 +86,37 @@ class DM(nn.Module):
 
         image, mask = inp
 
-        mask_3 = torch.concat((mask, mask),dim=2)
+        mask_3 = torch.concat((mask, mask,mask),dim=2)
 
         mu, sigma = self.generate_moments(image, mask)
+        mu = mu[:,0,:,:,:]
 
         n_samples=mu.shape[0]
 
         with torch.no_grad():
 
             # start off with an intial random ensemble of particles
-            x = sigma*torch.randn_like((mu), device=self.device)
+            x = torch.randn_like((mu), device=self.device)
 
             # the number of steps is fixed before beginning training. unfortunately.
             for t in reversed(range(self.n_steps)):
                 # apply the same variance to all particles in the ensemble equally.
-                a = self.alpha[t].repeat(n_samples)[:,None,None,None,None]
-                abar = self.alpha_bar[t].repeat(n_samples)[:,None,None,None,None]
+                a = self.alpha[t].repeat(n_samples)[:,None,None,None]
+                abar = self.alpha_bar[t].repeat(n_samples)[:,None,None,None]
 
-                input = torch.concat((mu, x),dim=2)
+                #input = torch.concat((mu, x, torch.sqrt(1 - abar) * sigma),dim=2)
+               # print(mu.shape)
+               # print(x.shape)
+                input = torch.cat([mu, x],dim=1).squeeze()
                 
                 # deterministic trajectory. eps_theta is similar to the Force on the particle
-                eps_theta = model(input, mask_3)
+                eps_theta = model(input, torch.sqrt(1 - abar))
 
                 x_mean = (x - eps_theta * (1 - a) / torch.sqrt(1 - abar)) / torch.sqrt(a)
 
                 sigma_t = torch.sqrt(1 - self.alpha[t])
 
-                z = sigma * torch.randn_like(x, device=self.device)
+                z = torch.randn_like(x, device=self.device)
                 x = x_mean + sigma_t * z 
 
             return x_mean  
