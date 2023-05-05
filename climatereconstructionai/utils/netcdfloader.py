@@ -21,22 +21,37 @@ class RandomTransform(torch.nn.Module):
         return self.t(img)
 
 class img_norm(torch.nn.Module):
-    def __init__(self, mode='minmax'):
+    def __init__(self):
         super().__init__()
+        self.moments = tuple()
         
-        if mode=='minmax':
-            self.norm = norm_img_mm
-        else:
-            self.norm = norm_img_ms
     def __call__(self, img):
-        return self.norm(img)
+        img_norm, moments = norm_img_mm(img, min_max_input=self.moments)
+        self.moments = moments
+        return img_norm
+    
+class img_diff(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.img_ref = None
+        
+    def __call__(self, img):
+        if self.img_ref is not None:
+            img_diff = img - self.img_ref
+        else:
+            img_diff = img
+            self.img_ref = img
+        return img_diff
+    
+def norm_img_mm(image, min_max_output=(-1,1), min_max_input=tuple()):
+    if len(min_max_input)==0:
+        img_norm = (image-image.min())/(image.max()-image.min())
+        min_max_input = (image.min(), image.max())
+    else:
+        img_norm = (image-min_max_input[0])/(min_max_input[1]-min_max_input[0])
 
-def norm_img_mm(image, min_max=(-1,1)):
-    img_norm = (image-image.min())/(image.max()-image.min())
-    return img_norm * (min_max[1] - min_max[0]) + min_max[0]
-
-def norm_img_ms(image):
-    return (image-image.mean())/(image.std())
+    img_norm = img_norm * (min_max_output[1] - min_max_output[0]) + min_max_output[0]
+    return img_norm, min_max_input
 
 def identity(image):
     return image
@@ -131,7 +146,7 @@ def load_netcdf(path, data_names, data_types, keep_dss=False):
 
 
 class NetCDFLoader(Dataset):
-    def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps, stat_target=None, apply_transform=False, apply_img_norm=False):
+    def __init__(self, data_root, img_names, mask_root, mask_names, split, data_types, time_steps, stat_target=None, apply_transform=False, apply_img_norm=False, apply_img_diff=False):
         super(NetCDFLoader, self).__init__()
 
         self.random = random.Random(cfg.loop_random_seed)
@@ -140,6 +155,7 @@ class NetCDFLoader(Dataset):
         self.time_steps = time_steps
         self.apply_transform = apply_transform
         self.apply_img_norm = apply_img_norm
+        self.apply_img_diff = apply_img_diff
 
         mask_path = mask_root
         if split == 'infill':
@@ -221,6 +237,7 @@ class NetCDFLoader(Dataset):
                     identity
                 ])
         norm = img_norm()
+        diff = img_diff()
 
         for i in range(ndata):
 
@@ -232,6 +249,9 @@ class NetCDFLoader(Dataset):
             
             if self.apply_img_norm:
                 image = norm(image)
+
+            if self.apply_img_diff:
+                image = diff(image)
 
             if i >= ndata - cfg.n_target_data:
                 images.append(image)

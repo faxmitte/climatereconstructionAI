@@ -114,8 +114,9 @@ def infill(model, dataset, evaluation_dir):
 
         # get results from trained network
         with torch.no_grad():
-            data_dict["output"].append(model(data_dict["image"][-1].to(cfg.device),
-                                             data_dict["mask"][-1].to(cfg.device)))
+            m_output = model(data_dict["image"][-1].to(cfg.device),data_dict["mask"][-1].to(cfg.device))
+            m_output = m_output[:,:,0,:,:].unsqueeze(dim=1)
+            data_dict["output"].append(m_output)
 
         for key in keys[:4]:
             data_dict[key][-1] = data_dict[key][-1][:, cfg.lstm_steps, :, :, :].to(torch.device('cpu'))

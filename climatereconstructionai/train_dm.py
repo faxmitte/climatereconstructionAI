@@ -58,9 +58,14 @@ def train_dm(arg_file=None):
 
     # create data sets
     dataset_train = NetCDFLoader(cfg.data_root_dir, cfg.data_names, cfg.mask_dir, cfg.mask_names, 'train',
-                                 cfg.data_types, time_steps, apply_transform=cfg.apply_transform, apply_img_norm=cfg.apply_img_norm)
+                                 cfg.data_types, time_steps,
+                                 apply_transform=cfg.apply_transform,
+                                 apply_img_norm=cfg.apply_img_norm,
+                                 apply_img_diff=cfg.apply_img_diff)
     dataset_val = NetCDFLoader(cfg.data_root_dir, cfg.val_names, cfg.mask_dir, cfg.mask_names, 'val', cfg.data_types,
-                               time_steps)
+                               time_steps,
+                               apply_img_norm=cfg.apply_img_norm,
+                               apply_img_diff=cfg.apply_img_diff)
     iterator_train = iter(DataLoader(dataset_train, batch_size=cfg.batch_size,
                                      sampler=InfiniteSampler(len(dataset_train)),
                                      num_workers=cfg.n_threads))
@@ -97,7 +102,7 @@ def train_dm(arg_file=None):
                         out_channels=cfg.out_channels,
                         bounds=dataset_train.bounds).to(cfg.device)
 
-    model = unet.UNet(in_channel=2, attn_res=[16], res_blocks=2, out_channel=1,inner_channel=64,dropout=0.2).to(cfg.device)
+    model = unet.UNet(in_channel=2, attn_res=[16], res_blocks=2, out_channel=1,inner_channel=64,dropout=0.2, image_size=cfg.image_sizes[0]).to(cfg.device)
 
     # settings DM
     use_sigma = False
@@ -107,7 +112,7 @@ def train_dm(arg_file=None):
 
     #dm_model = DM.DM(2000, gmodel=gmodel, min_val=min_val, max_val=max_val, use_sigma=use_sigma, use_mu=use_mu).to(cfg.device)
 
-    dm_model = diffusion.GaussianDiffusion(model, image_size=128, channels=1)
+    dm_model = diffusion.GaussianDiffusion(model, image_size=cfg.image_sizes[0], channels=1)
 
     schedule_opt = {
                 "schedule": "linear",

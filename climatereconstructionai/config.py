@@ -207,6 +207,8 @@ def set_common_args():
     arg_parser.add_argument('--writer-mode', type=str, default='model_config', help="tensorboard writer mode")
     arg_parser.add_argument('--apply-img-norm', action='store_true', default=False,
                             help="if each image should be normed")
+    arg_parser.add_argument('--apply-img-diff', action='store_true', default=False,
+                            help="if the gt should be subtracted from the input image")
     arg_parser.add_argument('--diffusion-settings-path', type=str, default=None,
                             help="path to the json storing the options for the diffusion model")
     return arg_parser

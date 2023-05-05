@@ -69,7 +69,7 @@ class loss_criterion(torch.nn.Module):
         loss_dict = {}
         for loss, criterion in self.criterions.items():
             if not loss=='gauss':
-                l = criterion(mask.unsqueeze(dim=1), output[:, 0, :, :].unsqueeze(dim=1), gt.unsqueeze(dim=1))
+                l = criterion(mask, output, gt)
             else:
                 l = criterion(mask, output, gt)
             loss_dict.update(l)

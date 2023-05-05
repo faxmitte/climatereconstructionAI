@@ -57,9 +57,16 @@ def train(arg_file=None):
 
     # create data sets
     dataset_train = NetCDFLoader(cfg.data_root_dir, cfg.data_names, cfg.mask_dir, cfg.mask_names, 'train',
-                                 cfg.data_types, time_steps, apply_transform=cfg.apply_transform)
+                                 cfg.data_types, time_steps,
+                                 apply_transform=cfg.apply_transform,
+                                 apply_img_norm=cfg.apply_img_norm,
+                                 apply_img_diff=cfg.apply_img_diff)
+    
     dataset_val = NetCDFLoader(cfg.data_root_dir, cfg.val_names, cfg.mask_dir, cfg.mask_names, 'val', cfg.data_types,
-                               time_steps)
+                               time_steps, 
+                               apply_img_norm=cfg.apply_img_norm,
+                               apply_img_diff=cfg.apply_img_diff)
+    
     iterator_train = iter(DataLoader(dataset_train, batch_size=cfg.batch_size,
                                      sampler=InfiniteSampler(len(dataset_train)),
                                      num_workers=cfg.n_threads, multiprocessing_context='fork'))
