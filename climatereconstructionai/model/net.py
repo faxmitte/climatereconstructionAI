@@ -103,7 +103,7 @@ class CRAINet(nn.Module):
                 if hasattr(cfg, 'lambda_dict'):
                     if 'gauss' in cfg.lambda_dict:
                         if cfg.lambda_dict['gauss']>0:
-                            activation = None #GaussActivation()
+                            activation = GaussActivation()
                             bias = True
             else:
                 activation = nn.LeakyReLU()
