@@ -211,6 +211,8 @@ def set_common_args():
                             help="if the gt should be subtracted from the input image")
     arg_parser.add_argument('--diffusion-settings-path', type=str, default=None,
                             help="path to the json storing the options for the diffusion model")
+    arg_parser.add_argument('--dropout', type=float, default=.0,
+                        help="if dropout should be used")
     return arg_parser
 
 
@@ -271,8 +273,7 @@ def set_train_args(arg_file=None):
                             help="Path of the pretrained model to use")
     arg_parser.add_argument('--apply-transform', action='store_true', default=False,
                             help="if training data should be randomly transformed")
-    arg_parser.add_argument('--dropout', type=float, default=.0,
-                            help="if dropout should be used")
+
 
     global_args(arg_parser, arg_file)
 
