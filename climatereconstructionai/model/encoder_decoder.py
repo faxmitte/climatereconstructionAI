@@ -27,7 +27,7 @@ class EncoderBlock(nn.Module):
         super().__init__()
         padding = kernel[0] // 2, kernel[1] // 2
         self.partial_conv = PConvBlock(conv_config['in_channels'], conv_config['out_channels'], kernel,
-                                       stride, padding, dilation, groups, False, activation, conv_config['bn'])
+                                       stride, padding, dilation, groups, False, activation, conv_config['bn'], dropout=cfg.dropout)
 
         if cfg.lstm_steps:
             self.recurrent_conv = ConvLSTMBlock(conv_config['out_channels'], conv_config['out_channels'],
@@ -61,7 +61,7 @@ class DecoderBlock(nn.Module):
         padding = kernel[0] // 2, kernel[1] // 2
         self.partial_conv = PConvBlock(conv_config['in_channels'] + conv_config['skip_channels'],
                                        conv_config['out_channels'], kernel, stride, padding, dilation, groups, bias,
-                                       activation, conv_config['bn'])
+                                       activation, conv_config['bn'],dropout=cfg.dropout)
         if cfg.lstm_steps:
             self.recurrent_conv = ConvLSTMBlock(conv_config['in_channels'], conv_config['in_channels'],
                                                 conv_config['img_size'] // 2, kernel, (1, 1), padding, (1, 1), groups)

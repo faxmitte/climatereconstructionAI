@@ -6,7 +6,6 @@ from .. import config as cfg
 from ..utils.masked_batchnorm import MaskedBatchNorm2d
 from ..utils.weights import weights_init
 
-
 def bound_pad(input, padding):
     input = F.pad(input, (0, 0, padding[2], 0), "constant", float(input[:, :, 0, :].mean()))
     input = F.pad(input, (0, 0, 0, padding[3]), "constant", float(input[:, :, -1, :].mean()))
@@ -16,7 +15,7 @@ def bound_pad(input, padding):
 
 
 class PConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel, stride, padding, dilation, groups, bias, activation, bn):
+    def __init__(self, in_channels, out_channels, kernel, stride, padding, dilation, groups, bias, activation, bn, dropout=0):
         super().__init__()
 
         self.padding = 2 * padding
@@ -39,6 +38,8 @@ class PConvBlock(nn.Module):
                 self.bn = MaskedBatchNorm2d(out_channels)
             else:
                 self.bn = nn.BatchNorm2d(out_channels)
+            
+        self.dropout = nn.Dropout(dropout) if dropout!=0 else nn.Identity()
 
         # exclude mask gradients from backpropagation
         for param in self.mask_conv.parameters():
@@ -75,5 +76,7 @@ class PConvBlock(nn.Module):
 
         if hasattr(self, 'activation'):
             output = self.activation(output)
+
+            output = self.dropout(output)
 
         return output, new_mask

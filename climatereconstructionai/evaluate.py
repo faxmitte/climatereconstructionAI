@@ -34,7 +34,8 @@ def evaluate(arg_file=None, prog_func=None):
             stat_target = None
 
         dataset_val = NetCDFLoader(cfg.data_root_dir, cfg.data_names, cfg.mask_dir, cfg.mask_names, "infill",
-                                   cfg.data_types, time_steps, stat_target)
+                                   cfg.data_types, time_steps, stat_target, apply_img_norm=cfg.apply_img_norm,
+                                   apply_img_diff=cfg.apply_img_diff)
 
         if len(cfg.image_sizes) - cfg.n_target_data > 1:
             model = CRAINet(img_size=cfg.image_sizes[0],
@@ -47,14 +48,14 @@ def evaluate(arg_file=None, prog_func=None):
                             fusion_pool_layers=cfg.pooling_layers[1],
                             fusion_in_channels=(len(cfg.image_sizes) - 1 - cfg.n_target_data
                                                 ) * (2 * cfg.channel_steps + 1),
-                            bounds=dataset_val.bounds).to(cfg.device)
+                            bounds=None).to(cfg.device)
         else:
             model = CRAINet(img_size=cfg.image_sizes[0],
                             enc_dec_layers=cfg.encoding_layers[0],
                             pool_layers=cfg.pooling_layers[0],
                             in_channels=2 * cfg.channel_steps + 1,
                             out_channels=cfg.out_channels,
-                            bounds=dataset_val.bounds).to(cfg.device)
+                            bounds=None).to(cfg.device)
 
         output_names = ["{}/{}".format(cfg.evaluation_dirs[i_model], name) for name in cfg.eval_names]
         outputs = []
