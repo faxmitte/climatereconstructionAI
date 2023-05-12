@@ -42,6 +42,9 @@ def train(arg_file=None):
         if not os.path.exists(outdir):
             os.makedirs(outdir)
 
+    if not os.path.exists(cfg.log_dir):
+        os.makedirs(cfg.log_dir)
+
     writer = twriter.writer()
 
     writer.set_hparams(cfg.passed_args)

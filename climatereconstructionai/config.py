@@ -97,7 +97,7 @@ def global_args(parser, arg_file=None, prog_func=None):
 
     global early_stopping
     if ('early_stopping_delta' in passed_args.keys()) or ('early_stopping_patience' in passed_args.keys()):
-        early_stopping=True
+        early_stopping=True 
     else:
         early_stopping=False
 
@@ -125,9 +125,6 @@ def global_args(parser, arg_file=None, prog_func=None):
     gt_channels = []
     for i in range(out_channels):
         gt_channels.append((i + 1) * channel_steps + i * (channel_steps + 1))
-
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
 
     if lstm_steps:
         recurrent_steps = lstm_steps
@@ -213,6 +210,8 @@ def set_common_args():
                             help="path to the json storing the options for the diffusion model")
     arg_parser.add_argument('--dropout', type=float, default=.0,
                         help="if dropout should be used")
+    arg_parser.add_argument('--upsample-mode', type=str, default='nearest',
+                        help="which upsampling mode in the decoder should be used")
     return arg_parser
 
 

@@ -82,7 +82,7 @@ class DecoderBlock(nn.Module):
         skip_mask = sequence_to_batch(skip_mask)
 
         # interpolate input and mask
-        m = nn.Upsample(skip_input.size()[-2:], mode='nearest')
+        m = nn.Upsample(skip_input.size()[-2:], mode=cfg.upsample_mode)
         h = m(input)
         h_mask = m(mask)
 
