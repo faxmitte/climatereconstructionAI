@@ -80,49 +80,73 @@ def train_dm(arg_file=None):
     else:
         stat_target = {"mean": dataset_train.img_mean[-cfg.n_target_data:],
                        "std": dataset_train.img_std[-cfg.n_target_data:]}
+        
+    diffusion_settings = cfg.diffusion_settings
+    if 'use_crai' in diffusion_settings.keys() and diffusion_settings['use_crai']:
+        use_crai = True
+    else: 
+        use_crai = False
 
-    # define network model
-    if len(cfg.image_sizes) - cfg.n_target_data > 1:
-        model = CRAINet(img_size=cfg.image_sizes[0],
-                        enc_dec_layers=cfg.encoding_layers[0],
-                        pool_layers=cfg.pooling_layers[0],
-                        in_channels=3 ,
-                        out_channels=cfg.out_channels,
-                        fusion_img_size=cfg.image_sizes[1],
-                        fusion_enc_layers=cfg.encoding_layers[1],
-                        fusion_pool_layers=cfg.pooling_layers[1],
-                        fusion_in_channels=(len(cfg.image_sizes) - 1 - cfg.n_target_data
-                                            ) * (2 * cfg.channel_steps + 1),
-                        bounds=dataset_train.bounds).to(cfg.device)
+    if use_crai:
+        if len(cfg.image_sizes) - cfg.n_target_data > 1:
+            model = CRAINet(img_size=cfg.image_sizes[0],
+                            enc_dec_layers=cfg.encoding_layers[0],
+                            pool_layers=cfg.pooling_layers[0],
+                            in_channels=2,
+                            out_channels=cfg.out_channels,
+                            fusion_img_size=cfg.image_sizes[1],
+                            fusion_enc_layers=cfg.encoding_layers[1],
+                            fusion_pool_layers=cfg.pooling_layers[1],
+                            fusion_in_channels=(len(cfg.image_sizes) - 1 - cfg.n_target_data
+                                                ) * (2 * cfg.channel_steps + 1),
+                            bounds=None).to(cfg.device)
+        else:
+            model = CRAINet(img_size=cfg.image_sizes[0],
+                            enc_dec_layers=cfg.encoding_layers[0],
+                            pool_layers=cfg.pooling_layers[0],
+                            in_channels=2,
+                            out_channels=cfg.out_channels,
+                            bounds=None).to(cfg.device)
+
+    
+
+    if 'use_custom_dm' in diffusion_settings.keys() and diffusion_settings['use_custom_dm']:
+        use_custom_dm = True
+    else: 
+        use_custom_dm = False
+
+    schedule_opt = diffusion_settings['schedule_opt']
+
+    if not use_crai:
+        model_opt = diffusion_settings['model_opt']
+        model = unet.UNet(
+            in_channel=model_opt['in_channel'],
+            attn_res=model_opt['attn_res'],
+            res_blocks=model_opt['res_blocks'],
+            out_channel=model_opt['out_channel'],
+            inner_channel=model_opt['inner_channel'],
+            dropout=model_opt['dropout'], 
+            image_size=cfg.image_sizes[0]
+            ).to(cfg.device)
+
+    if not use_custom_dm:
+        dm_model = diffusion.GaussianDiffusion(
+            model, 
+            image_size=cfg.image_sizes[0], 
+            channels=1, 
+            use_crai=diffusion_settings['use_crai']
+            )
+        dm_model.set_new_noise_schedule(schedule_opt, cfg.device)
+        dm_model.set_loss(cfg.device)
     else:
-        model = CRAINet(img_size=cfg.image_sizes[0],
-                        enc_dec_layers=cfg.encoding_layers[0],
-                        pool_layers=cfg.pooling_layers[0],
-                        in_channels=3,
-                        out_channels=cfg.out_channels,
-                        bounds=dataset_train.bounds).to(cfg.device)
-
-    model = unet.UNet(in_channel=2, attn_res=[16], res_blocks=2, out_channel=1,inner_channel=64,dropout=0.2, image_size=cfg.image_sizes[0]).to(cfg.device)
-
-    # settings DM
-    use_sigma = False
-    use_mu = True
-    min_val = 1e-6
-    max_val = 1e-2
-
-    #dm_model = DM.DM(2000, gmodel=gmodel, min_val=min_val, max_val=max_val, use_sigma=use_sigma, use_mu=use_mu).to(cfg.device)
-
-    dm_model = diffusion.GaussianDiffusion(model, image_size=cfg.image_sizes[0], channels=1)
-
-    schedule_opt = {
-                "schedule": "linear",
-                "n_timestep": 2000,
-                "linear_start": 1e-6,
-                "linear_end": 1e-2
-            }
-    dm_model.set_new_noise_schedule(schedule_opt, cfg.device)
-
-    dm_model.set_loss(cfg.device)
+        dm_model = DM.DM(
+            schedule_opt['n_timestep'], 
+            gmodel=None, 
+            min_val=schedule_opt['linear_start'], 
+            max_val=schedule_opt['linear_end'], 
+            use_sigma=False, 
+            use_mu=False
+            ).to(cfg.device)
 
     # define learning rate
     if cfg.finetune:
@@ -130,7 +154,6 @@ def train_dm(arg_file=None):
         model.freeze_enc_bn = True
     else:
         lr = cfg.lr
-
     
     early_stop = early_stopping.early_stopping()
 
@@ -160,20 +183,26 @@ def train_dm(arg_file=None):
         # train model
         model.train()
 
-        #train_loss, _, _ = dm_model.diffusion_loss(model,[x.to(cfg.device) for x in next(iterator_train)])
         image, mask, gt = [x.to(cfg.device) for x in next(iterator_train)]
-     
-        x_in = {'SR':image[:,0,:,:,:], 'HR':gt[:,0,:,:,:]}
-        
-        loss = dm_model(x_in)
 
-        b, c, h, w = x_in['HR'].shape
-        loss = loss.sum()/int(b*c*h*w)
-        train_loss = {'total': loss}
+        if use_custom_dm:
+            train_loss, _, _ = dm_model.diffusion_loss(model,[image, mask, gt])
+
+        else:
+            
+            x_in = {'SR':image[:,0,:,:,:], 'HR':gt[:,0,:,:,:], 'mask': mask[:,0,:,:,:]}
+                     
+            loss = dm_model(x_in)
+
+            b, c, h, w = x_in['HR'].shape
+            loss = loss.sum()/int(b*c*h*w)
+            train_loss = {'total': loss}
 
         optimizer.zero_grad()
         train_loss['total'].backward()
         optimizer.step()
+        
+        early_stop.update(train_loss['total'].item() , n_iter, model_save=model)
 
         if (cfg.log_interval and n_iter % cfg.log_interval == 0):
             writer.update_scalars(train_loss, n_iter, 'train')

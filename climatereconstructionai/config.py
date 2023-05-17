@@ -134,6 +134,7 @@ def global_args(parser, arg_file=None, prog_func=None):
         recurrent_steps = 0
 
     global use_diffusion
+    global diffusion_settings
     use_diffusion = False
     
     if diffusion_settings_path is not None:
