@@ -48,7 +48,7 @@ class CRAINet(nn.Module):
                                                      pool_layers, in_channels)
             dec_conv_configs = init_dec_conv_configs(cfg.conv_factor, img_size, enc_dec_layers,
                                                      pool_layers, in_channels,
-                                                     out_channels)
+                                                     out_channels, cfg.skip_layers)
         else:
             enc_conv_configs = init_enc_conv_configs_orig(img_size, enc_dec_layers,
                                                           out_channels, cfg.n_filters)
@@ -110,7 +110,7 @@ class CRAINet(nn.Module):
                 bias = False
             decoding_layers.append(DecoderBlock(
                 conv_config=dec_conv_configs[i],
-                kernel=dec_conv_configs[i]['kernel'], stride=(1, 1), activation=activation, bias=bias))
+                kernel=dec_conv_configs[i]['kernel'], stride=(1, 1), activation=activation, bias=bias,skip_layers=cfg.skip_layers))
         self.decoder = nn.ModuleList(decoding_layers)
 
         if bounds is not None:

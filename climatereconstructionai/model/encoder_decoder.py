@@ -56,9 +56,12 @@ class EncoderBlock(nn.Module):
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, conv_config, kernel, stride, activation, dilation=(1, 1), groups=1, bias=False):
+    def __init__(self, conv_config, kernel, stride, activation, dilation=(1, 1), groups=1, bias=False, skip_layers=True, up_factor=None):
         super().__init__()
         padding = kernel[0] // 2, kernel[1] // 2
+        self.skip_layers=skip_layers
+        self.up_factor=up_factor
+
         self.partial_conv = PConvBlock(conv_config['in_channels'] + conv_config['skip_channels'],
                                        conv_config['out_channels'], kernel, stride, padding, dilation, groups, bias,
                                        activation, conv_config['bn'],dropout=cfg.dropout)
@@ -81,12 +84,17 @@ class DecoderBlock(nn.Module):
         skip_input = sequence_to_batch(skip_input)
         skip_mask = sequence_to_batch(skip_mask)
 
-        # interpolate input and mask
-        m = nn.Upsample(skip_input.size()[-2:], mode=cfg.upsample_mode)
+        if self.up_factor is None:
+            target_size = skip_input.size()[-2:]
+            m = nn.Upsample(size=target_size, mode=cfg.upsample_decoder)
+        else:
+            #target_size = torch.tensor([input.size()[-2]*self.up_factor,input.size()[-1]*self.up_factor])
+            m = nn.Upsample(scale_factor=self.up_factor, mode=cfg.upsample_decoder)
+        
         h = m(input)
         h_mask = m(mask)
 
-        if cfg.skip_layers:
+        if self.skip_layers:
             # skip layers: pass results from encoding layers to decoding layers
             h = torch.cat([h, skip_input], dim=1)
             h_mask = torch.cat([h_mask, skip_mask], dim=1)

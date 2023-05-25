@@ -142,7 +142,18 @@ def global_args(parser, arg_file=None, prog_func=None):
         with open(diffusion_settings_path, 'r') as f:
             diffusion_settings = json.load(f)
     
+    upsample_modes = {
+        0:'nearest',
+        1: 'linear',
+        2: 'bilinear',
+        3: 'bicubic',
+        4: 'trilinear'}
 
+    global upsample_dataloader
+    upsample_dataloader = upsample_modes[upsample_mode]
+
+    global upsample_decoder
+    upsample_decoder = upsample_modes[upsample_mode_decoder]
 
 def set_common_args():
     arg_parser = argparse.ArgumentParser()
@@ -211,8 +222,10 @@ def set_common_args():
                             help="path to the json storing the options for the diffusion model")
     arg_parser.add_argument('--dropout', type=float, default=.0,
                         help="if dropout should be used")
-    arg_parser.add_argument('--upsample-mode', type=str, default='nearest',
-                        help="which upsampling mode in the decoder should be used")
+    arg_parser.add_argument('--upsample-mode-decoder', type=int, default=0,
+                        help="0: nearest, 1: linear, 2: bilinear, 3: bicubic, 4: trilinear")
+    arg_parser.add_argument('--upsample-mode', type=int, default=0,
+                        help="0: nearest, 1: linear, 2: bilinear, 3: bicubic, 4: trilinear")
     return arg_parser
 
 
