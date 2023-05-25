@@ -170,6 +170,11 @@ class NetCDFLoader(Dataset):
                     mask_path = '{:s}/val/'.format(mask_root)
             self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types)
 
+            img_sizes = np.array([img_data.shape[-2:] for img_data in self.img_data])
+            target_size = img_sizes.max(axis=0)
+
+            self.interpolations = [torch.nn.Upsample(size=tuple(target_size), mode=cfg.upsample_dataloader) if (img_size-target_size !=0).any() else torch.nn.Identity() for img_size in img_sizes]
+            
         self.mask_data, self.mask_length = load_netcdf(mask_path, mask_names, data_types)
 
         if self.mask_data is None:
@@ -242,6 +247,9 @@ class NetCDFLoader(Dataset):
         for i in range(ndata):
 
             image, mask = self.get_single_item(i, index, cfg.shuffle_masks)
+
+            image = self.interpolations[i](image)
+            mask = self.interpolations[i](mask)
 
             if self.apply_transform:
                 image=transform(image)
