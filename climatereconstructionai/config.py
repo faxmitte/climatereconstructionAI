@@ -147,10 +147,11 @@ def global_args(parser, arg_file=None, prog_func=None):
         1: 'linear',
         2: 'bilinear',
         3: 'bicubic',
-        4: 'trilinear'}
+        4: 'trilinear',
+        5: 'learned'}
 
-    global upsample_dataloader
-    upsample_dataloader = upsample_modes[upsample_mode]
+    global residual_upsampling_mode
+    residual_upsampling_mode = upsample_modes[upsample_mode]
 
     global upsample_decoder
     upsample_decoder = upsample_modes[upsample_mode_decoder]
@@ -216,8 +217,6 @@ def set_common_args():
     arg_parser.add_argument('--writer-mode', type=str, default='model_config', help="tensorboard writer mode")
     arg_parser.add_argument('--apply-img-norm', action='store_true', default=False,
                             help="if each image should be normed")
-    arg_parser.add_argument('--apply-img-diff', action='store_true', default=False,
-                            help="if the gt should be subtracted from the input image")
     arg_parser.add_argument('--diffusion-settings-path', type=str, default=None,
                             help="path to the json storing the options for the diffusion model")
     arg_parser.add_argument('--dropout', type=float, default=.0,
@@ -226,6 +225,8 @@ def set_common_args():
                         help="0: nearest, 1: linear, 2: bilinear, 3: bicubic, 4: trilinear")
     arg_parser.add_argument('--upsample-mode', type=int, default=0,
                         help="0: nearest, 1: linear, 2: bilinear, 3: bicubic, 4: trilinear")
+    arg_parser.add_argument('--predict-residual', action='store_true', default=False,
+                            help="if the residual should be predicted")
     return arg_parser
 
 

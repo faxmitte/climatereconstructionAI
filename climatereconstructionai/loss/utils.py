@@ -20,8 +20,8 @@ def conv_variance(data, k=11):
     weights = torch.ones((1,1,k,k),dtype=torch.float, device=data.device)/(k*k)
     
     with torch.no_grad():
-        exp = F.conv2d(torch.pow(data, 2), weights, padding='valid')
-        exp2 = torch.pow(F.conv2d(data, weights, padding='valid'),2)
+        exp = F.conv2d(torch.pow(data, 2), weights, padding='same')
+        exp2 = torch.pow(F.conv2d(data, weights, padding='same'),2)
 
     #return torch.sqrt(exp-exp2)
     return (exp-exp2)

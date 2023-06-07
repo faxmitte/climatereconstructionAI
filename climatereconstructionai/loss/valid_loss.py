@@ -19,6 +19,9 @@ class ValidLoss(nn.Module):
             gt_ch = torch.unsqueeze(gt[:, channel, :, :], dim=1)
             output_ch = torch.unsqueeze(output[:, channel, :, :], dim=1)
 
-            # define different loss functions from output and output_comp
-            loss_dict['valid'] += self.l1(mask_ch * output_ch, mask_ch * gt_ch)
+            if mask_ch.shape[-1] != output_ch.shape[-1]:
+                loss_dict['valid'] += self.l1(output_ch, gt_ch)
+            else:
+                # define different loss functions from output and output_comp
+                loss_dict['valid'] += self.l1(mask_ch * output_ch, mask_ch * gt_ch)
         return loss_dict

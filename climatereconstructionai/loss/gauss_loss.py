@@ -16,6 +16,6 @@ class GaussLoss(nn.Module):
             'gauss': 0.0
         } 
 
-        loss_dict['gauss'] += self.Gauss(output[:,0,:,:],gt,output[:,1,:,:]**2)
+        loss_dict['gauss'] += self.Gauss(output[:,0,:,:],gt,output[:,1,:,:])
 
         return loss_dict

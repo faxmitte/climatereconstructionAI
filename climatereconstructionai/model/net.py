@@ -14,14 +14,14 @@ class GaussActivation(nn.Module):
         super().__init__() 
         self.dim_ch = dim_ch
         self.activation_mu = None
-        self.activation_std = nn.ReLU()
+        self.activation_std = nn.Softplus()
 
     def forward(self, input):
         if self.activation_mu is not None:
-            mu = self.activation_mu(input[:,0,:,:])
+            mu = self.activation_mu(input[:,0])
         else:
             mu = input[:,0,:,:]
-        std = self.activation_std(input[:,1,:,:])
+        std = self.activation_std(input[:,1])
         
         return torch.concat((mu.unsqueeze(dim=self.dim_ch),std.unsqueeze(dim=self.dim_ch)),self.dim_ch)
     
@@ -32,7 +32,7 @@ def progstat(index, numel):
 
 
 class CRAINet(nn.Module):
-    def __init__(self, img_size=512, enc_dec_layers=4, pool_layers=4, in_channels=1, out_channels=1,
+    def __init__(self, img_size_source, img_size_target, enc_dec_layers=4, pool_layers=4, in_channels=1, out_channels=1,
                  fusion_img_size=None, fusion_enc_layers=None, fusion_pool_layers=None, fusion_in_channels=0,
                  bounds=None):
 
@@ -44,16 +44,21 @@ class CRAINet(nn.Module):
 
         # initialize channel inputs and outputs and image size for encoder and decoder
         if cfg.n_filters is None:
-            enc_conv_configs = init_enc_conv_configs(cfg.conv_factor, img_size, enc_dec_layers,
+            enc_conv_configs = init_enc_conv_configs(cfg.conv_factor, img_size_target[0], enc_dec_layers,
                                                      pool_layers, in_channels)
-            dec_conv_configs = init_dec_conv_configs(cfg.conv_factor, img_size, enc_dec_layers,
+            dec_conv_configs = init_dec_conv_configs(cfg.conv_factor, img_size_target[0], enc_dec_layers,
                                                      pool_layers, in_channels,
                                                      out_channels, cfg.skip_layers)
         else:
-            enc_conv_configs = init_enc_conv_configs_orig(img_size, enc_dec_layers,
+            enc_conv_configs = init_enc_conv_configs_orig(img_size_target[0], enc_dec_layers,
                                                           out_channels, cfg.n_filters)
-            dec_conv_configs = init_dec_conv_configs_orig(img_size, enc_dec_layers,
+            dec_conv_configs = init_dec_conv_configs_orig(img_size_target[0], enc_dec_layers,
                                                           out_channels, cfg.n_filters)
+
+        if ((torch.tensor(img_size_target)-torch.tensor(img_size_source))>0).any():
+            self.upsample = nn.Upsample(size=(img_size_target), mode=cfg.residual_upsampling_mode)
+        else:
+            self.upsample = nn.Identity()
 
         if cfg.attention:
             self.attention_depth = fusion_enc_layers + fusion_pool_layers
@@ -122,6 +127,13 @@ class CRAINet(nn.Module):
         # create lists for skip connections
         # We split the inputs in case we use the attention module with different image dimension
         h_index = 2 * cfg.channel_steps + 1
+        
+        input = self.upsample(input[:,0]).unsqueeze(dim=1)
+        input_mask = self.upsample(input_mask[:,0]).unsqueeze(dim=1)
+
+        if cfg.predict_residual:
+            input_base = input.clone()
+
         hs = [input[:, :, :h_index, :, :]]
         hs_mask = [input_mask[:, :, :h_index, :, :]]
         recurrent_states = []
@@ -209,9 +221,16 @@ class CRAINet(nn.Module):
                                                              None)
             progstat(i + self.net_depth, 2 * self.net_depth)
         
+        if cfg.predict_residual:
+            if cfg.out_channels>input_base.shape[2]:
+                h[:,:,0] = h[:,:,0]+input_base[:,:,0]
+            else:
+                h+=input_base
+ 
+
         if self.bounds is not None:
             h = self.binder.scale(h)
-
+        
         # return last element of output from last decoding layer
         return h
 

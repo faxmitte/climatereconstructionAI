@@ -30,19 +30,6 @@ class img_norm(torch.nn.Module):
         self.moments = moments
         return img_norm
     
-class img_diff(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.img_ref = None
-        
-    def __call__(self, img):
-        if self.img_ref is not None:
-            img_diff = img - self.img_ref
-        else:
-            img_diff = img
-            self.img_ref = img
-        return img_diff
-    
 def norm_img_mm(image, min_max_output=(-1,1), min_max_input=tuple()):
     if len(min_max_input)==0:
         img_norm = (image-image.min())/(image.max()-image.min())
@@ -172,9 +159,7 @@ class NetCDFLoader(Dataset):
 
             img_sizes = np.array([img_data.shape[-2:] for img_data in self.img_data])
             target_size = img_sizes.max(axis=0)
-
-            self.interpolations = [torch.nn.Upsample(size=tuple(target_size), mode=cfg.upsample_dataloader) if (img_size-target_size !=0).any() else torch.nn.Identity() for img_size in img_sizes]
-            
+ 
         self.mask_data, self.mask_length = load_netcdf(mask_path, mask_names, data_types)
 
         if self.mask_data is None:
@@ -242,14 +227,10 @@ class NetCDFLoader(Dataset):
                     identity
                 ])
         norm = img_norm()
-        diff = img_diff()
 
         for i in range(ndata):
 
             image, mask = self.get_single_item(i, index, cfg.shuffle_masks)
-
-            image = self.interpolations[i](image)
-            mask = self.interpolations[i](mask)
 
             if self.apply_transform:
                 image=transform(image)
@@ -257,9 +238,6 @@ class NetCDFLoader(Dataset):
             
             if self.apply_img_norm:
                 image = norm(image)
-
-            if self.apply_img_diff:
-                image = diff(image)
 
             if i >= ndata - cfg.n_target_data:
                 images.append(image)

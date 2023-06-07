@@ -62,13 +62,11 @@ def train(arg_file=None):
     dataset_train = NetCDFLoader(cfg.data_root_dir, cfg.data_names, cfg.mask_dir, cfg.mask_names, 'train',
                                  cfg.data_types, time_steps,
                                  apply_transform=cfg.apply_transform,
-                                 apply_img_norm=cfg.apply_img_norm,
-                                 apply_img_diff=cfg.apply_img_diff)
+                                 apply_img_norm=cfg.apply_img_norm)
     
     dataset_val = NetCDFLoader(cfg.data_root_dir, cfg.val_names, cfg.mask_dir, cfg.mask_names, 'val', cfg.data_types,
                                time_steps, 
-                               apply_img_norm=cfg.apply_img_norm,
-                               apply_img_diff=cfg.apply_img_diff)
+                               apply_img_norm=cfg.apply_img_norm)
     
     iterator_train = iter(DataLoader(dataset_train, batch_size=cfg.batch_size,
                                      sampler=InfiniteSampler(len(dataset_train)),
@@ -87,7 +85,8 @@ def train(arg_file=None):
 
     # define network model
     if len(cfg.image_sizes) - cfg.n_target_data > 1:
-        model = CRAINet(img_size=cfg.image_sizes[0],
+        model = CRAINet(img_size_source=dataset_train[0][0].shape[-2:],
+                        img_size_target=dataset_train[0][-1].shape[-2:],
                         enc_dec_layers=cfg.encoding_layers[0],
                         pool_layers=cfg.pooling_layers[0],
                         in_channels=2 * cfg.channel_steps + 1,
@@ -97,14 +96,15 @@ def train(arg_file=None):
                         fusion_pool_layers=cfg.pooling_layers[1],
                         fusion_in_channels=(len(cfg.image_sizes) - 1 - cfg.n_target_data
                                             ) * (2 * cfg.channel_steps + 1),
-                        bounds=dataset_train.bounds).to(cfg.device)
+                        bounds=None).to(cfg.device)
     else:
-        model = CRAINet(img_size=cfg.image_sizes[0],
+        model = CRAINet(img_size_source=dataset_train[0][0].shape[-2:],
+                        img_size_target=dataset_train[0][-1].shape[-2:],
                         enc_dec_layers=cfg.encoding_layers[0],
                         pool_layers=cfg.pooling_layers[0],
                         in_channels=2 * cfg.channel_steps + 1,
                         out_channels=cfg.out_channels,
-                        bounds=dataset_train.bounds).to(cfg.device)
+                        bounds=None).to(cfg.device)
 
     # define learning rate
     if cfg.finetune:

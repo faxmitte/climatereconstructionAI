@@ -56,11 +56,12 @@ class EncoderBlock(nn.Module):
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, conv_config, kernel, stride, activation, dilation=(1, 1), groups=1, bias=False, skip_layers=True, up_factor=None):
+    def __init__(self, conv_config, kernel, stride, activation, dilation=(1, 1), groups=1, bias=False, skip_layers=True, up_factor=None, up_sample_decoder='nearest'):
         super().__init__()
         padding = kernel[0] // 2, kernel[1] // 2
         self.skip_layers=skip_layers
         self.up_factor=up_factor
+        self.up_sample_decoder=up_sample_decoder
 
         self.partial_conv = PConvBlock(conv_config['in_channels'] + conv_config['skip_channels'],
                                        conv_config['out_channels'], kernel, stride, padding, dilation, groups, bias,
@@ -86,10 +87,10 @@ class DecoderBlock(nn.Module):
 
         if self.up_factor is None:
             target_size = skip_input.size()[-2:]
-            m = nn.Upsample(size=target_size, mode=cfg.upsample_decoder)
+            m = nn.Upsample(size=target_size, mode=self.up_sample_decoder)
         else:
             #target_size = torch.tensor([input.size()[-2]*self.up_factor,input.size()[-1]*self.up_factor])
-            m = nn.Upsample(scale_factor=self.up_factor, mode=cfg.upsample_decoder)
+            m = nn.Upsample(scale_factor=self.up_factor, mode=self.up_sample_decoder)
         
         h = m(input)
         h_mask = m(mask)
