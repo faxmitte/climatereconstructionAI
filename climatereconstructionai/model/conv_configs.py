@@ -6,8 +6,8 @@ from .. import config as cfg
 def init_enc_conv_configs(conv_factor, img_size, enc_dec_layers, pool_layers, start_channels):
     conv_configs = []
     kernel_size_start=cfg.kernel_size_start
-    kernel_size_min = 3 if kernel_size_start-2 < 3 else kernel_size_start-2
-    kernel_size_mid = 3 if kernel_size_start-4 < 3 else kernel_size_start-4
+    kernel_size_mid = 3 if kernel_size_start-2 < 3 else kernel_size_start-2
+    kernel_size_min = 3 if kernel_size_start-4 < 3 else kernel_size_start-4
     for i in range(enc_dec_layers):
         conv_config = {}
         conv_config['bn'] = True

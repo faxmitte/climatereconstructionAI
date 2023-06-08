@@ -26,7 +26,7 @@ class img_norm(torch.nn.Module):
         self.moments = tuple()
         
     def __call__(self, img):
-        img_norm, moments = norm_img_ms(img, moments=self.moments)
+        img_norm, moments = norm_img_mm(img, moments=self.moments)
         self.moments = moments
         return img_norm
     
@@ -166,8 +166,8 @@ class NetCDFLoader(Dataset):
                     mask_path = '{:s}/val/'.format(mask_root)
             self.img_data, self.img_length = load_netcdf(data_path, img_names, data_types)
 
-            img_sizes = np.array([img_data.shape[-2:] for img_data in self.img_data])
-            target_size = img_sizes.max(axis=0)
+        img_sizes = np.array([img_data.shape[-2:] for img_data in self.img_data])
+        target_size = img_sizes.max(axis=0)
  
         self.mask_data, self.mask_length = load_netcdf(mask_path, mask_names, data_types)
 
