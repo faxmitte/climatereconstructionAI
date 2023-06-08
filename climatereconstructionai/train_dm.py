@@ -132,7 +132,8 @@ def train_dm(arg_file=None):
     if not use_custom_dm:
         dm_model = diffusion.GaussianDiffusion(
             model, 
-            image_size=cfg.image_sizes[0], 
+            img_size_source=dataset_train[0][0].shape[-1],
+            img_size_target=dataset_train[0][-1].shape[-1],
             channels=1, 
             use_crai=diffusion_settings['use_crai']
             )
