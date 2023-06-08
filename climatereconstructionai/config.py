@@ -150,8 +150,8 @@ def global_args(parser, arg_file=None, prog_func=None):
         4: 'trilinear',
         5: 'learned'}
 
-    global residual_upsampling_mode
-    residual_upsampling_mode = upsample_modes[upsample_mode]
+    global upsampling_mode
+    upsampling_mode = upsample_modes[upsample_mode]
 
     global upsample_decoder
     upsample_decoder = upsample_modes[upsample_mode_decoder]
@@ -214,7 +214,7 @@ def set_common_args():
     arg_parser.add_argument('--max-bounds', type=float_list, default="inf",
                             help="Comma separated list of values defining the permitted upper-bound of output values")
     arg_parser.add_argument('--profile', action='store_true', help="Profile code using tensorboard profiler")
-    arg_parser.add_argument('--writer-mode', type=str, default='model_config', help="tensorboard writer mode")
+    arg_parser.add_argument('--writer-mode', type=str, default='model_config', help="tensorboard writer mode")  
     arg_parser.add_argument('--apply-img-norm', action='store_true', default=False,
                             help="if each image should be normed")
     arg_parser.add_argument('--diffusion-settings-path', type=str, default=None,
@@ -225,8 +225,12 @@ def set_common_args():
                         help="0: nearest, 1: linear, 2: bilinear, 3: bicubic, 4: trilinear")
     arg_parser.add_argument('--upsample-mode', type=int, default=0,
                         help="0: nearest, 1: linear, 2: bilinear, 3: bicubic, 4: trilinear")
+    arg_parser.add_argument('--upsample-dataloader', action='store_true', default=False,
+                            help="if the data should be upsampled in the the loader")
     arg_parser.add_argument('--predict-residual', action='store_true', default=False,
                             help="if the residual should be predicted")
+    arg_parser.add_argument('--kernel-size-start', type=int, default=7,
+                        help="kernel_size in the first encoding layer")
     return arg_parser
 
 

@@ -56,7 +56,7 @@ class CRAINet(nn.Module):
                                                           out_channels, cfg.n_filters)
 
         if ((torch.tensor(img_size_target)-torch.tensor(img_size_source))>0).any():
-            self.upsample = nn.Upsample(size=(img_size_target), mode=cfg.residual_upsampling_mode)
+            self.upsample = nn.Upsample(size=(img_size_target), mode=cfg.upsampling_mode)
         else:
             self.upsample = nn.Identity()
 

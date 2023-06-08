@@ -63,8 +63,8 @@ class loss_criterion(torch.nn.Module):
             mask = mask[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
             gt = gt[:, cfg.recurrent_steps, cfg.gt_channels, :, :]
         else:
-            mask = mask[:, cfg.recurrent_steps, 0, :, :]
-            gt = gt[:, cfg.recurrent_steps, 0, :, :]
+            mask = mask[:, cfg.recurrent_steps, :, :, :]
+            gt = gt[:, cfg.recurrent_steps, :, :, :]
         
         loss_dict = {}
         for loss, criterion in self.criterions.items():

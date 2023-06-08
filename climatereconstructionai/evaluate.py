@@ -34,11 +34,11 @@ def evaluate(arg_file=None, prog_func=None):
             stat_target = None
 
         dataset_val = NetCDFLoader(cfg.data_root_dir, cfg.data_names, cfg.mask_dir, cfg.mask_names, "infill",
-                                   cfg.data_types, time_steps, stat_target, apply_img_norm=cfg.apply_img_norm,
-                                   apply_img_diff=cfg.apply_img_diff)
+                                   cfg.data_types, time_steps, stat_target, apply_img_norm=cfg.apply_img_norm)
 
         if len(cfg.image_sizes) - cfg.n_target_data > 1:
-            model = CRAINet(img_size=cfg.image_sizes[0],
+            model = CRAINet(img_size_source=dataset_val[0][0].shape[-2:],
+                            img_size_target=dataset_val[0][-1].shape[-2:],
                             enc_dec_layers=cfg.encoding_layers[0],
                             pool_layers=cfg.pooling_layers[0],
                             in_channels=2 * cfg.channel_steps + 1,
@@ -50,7 +50,8 @@ def evaluate(arg_file=None, prog_func=None):
                                                 ) * (2 * cfg.channel_steps + 1),
                             bounds=None).to(cfg.device)
         else:
-            model = CRAINet(img_size=cfg.image_sizes[0],
+            model = CRAINet(img_size_source=dataset_val[0][0].shape[-2:],
+                            img_size_target=dataset_val[0][-1].shape[-2:],
                             enc_dec_layers=cfg.encoding_layers[0],
                             pool_layers=cfg.pooling_layers[0],
                             in_channels=2 * cfg.channel_steps + 1,

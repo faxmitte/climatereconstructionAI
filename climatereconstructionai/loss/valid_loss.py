@@ -13,13 +13,13 @@ class ValidLoss(nn.Module):
         }
 
         # calculate loss for all channels
-        for channel in range(output.shape[1]):
+        for channel in range(gt.shape[1]):
             # only select first channel
             mask_ch = torch.unsqueeze(mask[:, channel, :, :], dim=1)
             gt_ch = torch.unsqueeze(gt[:, channel, :, :], dim=1)
             output_ch = torch.unsqueeze(output[:, channel, :, :], dim=1)
 
-            if mask_ch.shape[-1] != output_ch.shape[-1]:
+            if (torch.tensor(mask_ch.shape) - torch.tensor(output_ch.shape)).any():
                 loss_dict['valid'] += self.l1(output_ch, gt_ch)
             else:
                 # define different loss functions from output and output_comp

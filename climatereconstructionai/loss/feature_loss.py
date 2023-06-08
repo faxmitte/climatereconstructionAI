@@ -17,7 +17,10 @@ class FeatureLoss(nn.Module):
         }
 
         # create output_comp
-        output_comp = mask * gt + (1 - mask) * output
+        if (torch.tensor(mask.shape) - torch.tensor(gt.shape)).any():
+            output_comp = output
+        else:
+            output_comp = mask * gt + (1 - mask) * output
 
         # calculate loss for all channels
         for channel in range(output.shape[1]):

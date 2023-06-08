@@ -5,6 +5,9 @@ from .. import config as cfg
 
 def init_enc_conv_configs(conv_factor, img_size, enc_dec_layers, pool_layers, start_channels):
     conv_configs = []
+    kernel_size_start=cfg.kernel_size_start
+    kernel_size_min = 3 if kernel_size_start-2 < 3 else kernel_size_start-2
+    kernel_size_mid = 3 if kernel_size_start-4 < 3 else kernel_size_start-4
     for i in range(enc_dec_layers):
         conv_config = {}
         conv_config['bn'] = True
@@ -12,13 +15,13 @@ def init_enc_conv_configs(conv_factor, img_size, enc_dec_layers, pool_layers, st
             if cfg.disable_first_bn:
                 conv_config['bn'] = False
             conv_config['in_channels'] = start_channels
-            conv_config['kernel'] = (7, 7)
+            conv_config['kernel'] = (kernel_size_start, kernel_size_start)
         else:
             conv_config['in_channels'] = conv_factor // (2 ** (enc_dec_layers - i))
             if i < enc_dec_layers - 1:
-                conv_config['kernel'] = (5, 5)
+                conv_config['kernel'] = (kernel_size_mid, kernel_size_mid)
             else:
-                conv_config['kernel'] = (3, 3)
+                conv_config['kernel'] = (kernel_size_min, kernel_size_min)
         conv_config['out_channels'] = conv_factor // (2 ** (enc_dec_layers - i - 1))
         conv_config['skip_channels'] = 0
         conv_config['img_size'] = img_size // (2 ** i)

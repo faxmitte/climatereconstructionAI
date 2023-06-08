@@ -26,19 +26,28 @@ class img_norm(torch.nn.Module):
         self.moments = tuple()
         
     def __call__(self, img):
-        img_norm, moments = norm_img_mm(img, min_max_input=self.moments)
+        img_norm, moments = norm_img_ms(img, moments=self.moments)
         self.moments = moments
         return img_norm
     
-def norm_img_mm(image, min_max_output=(-1,1), min_max_input=tuple()):
-    if len(min_max_input)==0:
+def norm_img_mm(image, min_max_output=(-1,1), moments=tuple()):
+    if len(moments)==0:
         img_norm = (image-image.min())/(image.max()-image.min())
-        min_max_input = (image.min(), image.max())
+        moments = (image.min(), image.max())
     else:
-        img_norm = (image-min_max_input[0])/(min_max_input[1]-min_max_input[0])
+        img_norm = (image-moments[0])/(moments[1]-moments[0])
 
     img_norm = img_norm * (min_max_output[1] - min_max_output[0]) + min_max_output[0]
-    return img_norm, min_max_input
+    return img_norm, moments
+
+def norm_img_ms(image, moments=tuple()):
+    if len(moments)==0:
+        img_norm = (image-image.mean())/(image.std())
+        moments = (image.mean(), image.std())
+    else:
+        img_norm = (image-moments[0])/(moments[1])
+
+    return img_norm, moments
 
 def identity(image):
     return image
@@ -170,6 +179,8 @@ class NetCDFLoader(Dataset):
 
         self.img_mean, self.img_std, self.img_tf = img_normalization(self.img_data)
 
+        self.interpolations = [torch.nn.Upsample(size=tuple(target_size), mode=cfg.upsampling_mode) if ((img_size-target_size !=0).any() and cfg.upsample_dataloader) else torch.nn.Identity() for img_size in img_sizes]
+
         self.bounds = bnd_normalization(self.img_mean, self.img_std, stat_target)
 
     def load_data(self, ind_data, img_indices, mask_indices):
@@ -236,6 +247,9 @@ class NetCDFLoader(Dataset):
                 image=transform(image)
                 mask=transform(mask)
             
+            image = self.interpolations[i](image)
+            mask = self.interpolations[i](mask)
+
             if self.apply_img_norm:
                 image = norm(image)
 
